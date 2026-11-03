@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>BetterGroundWindow</RootNamespace>
+    <AssemblyName>BetterGroundWindow</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>1.0.0</Version>
+    <Product>Better Ground Window</Product>
+    <Description>vatSys plugin: ICAO quick-jump box with history for the Ground (ASMGCS) window.</Description>
+    <!-- Folder containing vatSys.exe. Override with: dotnet build -p:VatSysBin="C:\Program Files (x86)\vatSys\bin" -->
+    <VatSysBin Condition="'$(VatSysBin)' == ''">G:\vatSys\vatSys\bin</VatSysBin>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="vatSys">
+      <HintPath>$(VatSysBin)\vatSys.exe</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
