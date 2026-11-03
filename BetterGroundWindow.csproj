@@ -46,7 +46,7 @@
       <PackageZip>$(MSBuildProjectDirectory)\dist\BetterGroundWindow-$(Version).zip</PackageZip>
     </PropertyGroup>
     <RemoveDir Directories="$(PackageStaging)" />
-    <Copy SourceFiles="$(TargetPath);README.md;Install-BetterGroundWindow.ps1" DestinationFolder="$(PackageStaging)BetterGroundWindow" />
+    <Copy SourceFiles="$(TargetPath);README.md;LICENSE;THIRD-PARTY-NOTICES.md;Install-BetterGroundWindow.ps1" DestinationFolder="$(PackageStaging)BetterGroundWindow" />
     <MakeDir Directories="$(MSBuildProjectDirectory)\dist" />
     <ZipDirectory SourceDirectory="$(PackageStaging)" DestinationFile="$(PackageZip)" Overwrite="true" />
     <Message Importance="high" Text="Release package: $(PackageZip)" />

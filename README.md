@@ -145,4 +145,6 @@ Profile maintainers can ship the plugin with their profile. Put the `BetterGroun
 
 ## License
 
-MIT
+GNU General Public License v3.0. See [LICENSE](LICENSE).
+
+The embedded Harmony library is MIT-licensed. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
