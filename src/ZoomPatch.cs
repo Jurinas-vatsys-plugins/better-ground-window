@@ -144,14 +144,21 @@ namespace BetterGroundWindow
             return false;
         }
 
+        // Returns a List rather than using "yield return": an iterator would compile
+        // to a nested class implementing IEnumerable<CodeInstruction>. vatSys (MEF)
+        // loads every type of a plugin DLL before any plugin runs, i.e. before
+        // EmbeddedAssemblies can supply Harmony, and that class would then fail to
+        // load and stop vatSys from starting. No type in this assembly may derive
+        // from or implement a Harmony type.
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             MethodInfo minRange = AccessTools.Method(typeof(MMI), "MinimumASDRange");
             MethodInfo maxRange = AccessTools.Method(typeof(MMI), "MaximumASDRange");
+            List<CodeInstruction> code = new List<CodeInstruction>();
 
             foreach (CodeInstruction instruction in instructions)
             {
-                yield return instruction;
+                code.Add(instruction);
 
                 string adjust = null;
                 if (minRange != null && instruction.Calls(minRange))
@@ -177,10 +184,12 @@ namespace BetterGroundWindow
                 if (adjust != null)
                 {
                     patchedSites++;
-                    yield return new CodeInstruction(OpCodes.Ldarg_0);
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ZoomPatch), adjust));
+                    code.Add(new CodeInstruction(OpCodes.Ldarg_0));
+                    code.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ZoomPatch), adjust)));
                 }
             }
+
+            return code;
         }
 
         private static bool Unlocked(object display)

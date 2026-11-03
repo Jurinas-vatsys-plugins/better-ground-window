@@ -85,6 +85,8 @@ If either code pattern isn't found exactly once, all three patches are removed a
 
 Harmony 2.3.3 is embedded inside `BetterGroundWindow.dll`, so the plugin is still a single file. If another plugin has already loaded a compatible Harmony 2.x (VATPRCPlugin ships 2.3.3, for example), the plugin uses that copy.
 
+The embedded copy only becomes available once the plugin is constructed. vatSys, through MEF, loads every type in every plugin DLL before it constructs any plugin. So no type in this assembly may derive from or implement a Harmony type, and that includes compiler-generated iterator classes (`yield return` over `CodeInstruction`). Otherwise `GetTypes()` fails and vatSys cannot start any profile that does not ship its own `0Harmony.dll`. Version 1.3.0 had this bug, and 1.3.1 fixes it.
+
 ## Building
 
 Requirements: the .NET SDK (any recent version) and a local vatSys install.
