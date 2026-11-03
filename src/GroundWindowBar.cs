@@ -35,8 +35,15 @@ namespace BetterGroundWindow
 
         private bool updatingBox;
 
-        private GroundWindowBar(Form window, MenuStrip menu, ToolStripMenuItem positionsMenu, Control groundDisplay)
+        private readonly ToolStripMenuItem toolsMenu;
+
+        private readonly ToolStripSeparator zoomSeparator = new ToolStripSeparator();
+
+        private readonly ToolStripMenuItem unlimitedZoomItem = new ToolStripMenuItem("Unlimited Zoom");
+
+        private GroundWindowBar(Form window, MenuStrip menu, ToolStripMenuItem positionsMenu, ToolStripMenuItem toolsMenu, Control groundDisplay)
         {
+            this.toolsMenu = toolsMenu;
             this.window = window;
             this.positionsMenu = positionsMenu;
             this.groundDisplay = groundDisplay;
@@ -69,6 +76,40 @@ namespace BetterGroundWindow
 
             RefreshItems();
             menu.Items.Insert(0, box);
+
+            if (toolsMenu != null)
+            {
+                unlimitedZoomItem.Name = "betterGroundUnlimitedZoom";
+                unlimitedZoomItem.Click += (s, e) => ZoomUnlock.SetEnabled(!ZoomUnlock.Enabled);
+                ZoomUnlock.EnabledChanged += ZoomUnlock_EnabledChanged;
+                UpdateZoomItem();
+                toolsMenu.DropDownItems.Add(zoomSeparator);
+                toolsMenu.DropDownItems.Add(unlimitedZoomItem);
+            }
+        }
+
+        private void ZoomUnlock_EnabledChanged(object sender, EventArgs e)
+        {
+            if (!window.IsDisposed)
+            {
+                UpdateZoomItem();
+            }
+        }
+
+        private void UpdateZoomItem()
+        {
+            if (ZoomUnlock.Unavailable != null)
+            {
+                unlimitedZoomItem.Enabled = false;
+                unlimitedZoomItem.Checked = false;
+                unlimitedZoomItem.ToolTipText = "Unavailable: " + ZoomUnlock.Unavailable;
+                return;
+            }
+
+            unlimitedZoomItem.Checked = ZoomUnlock.Enabled;
+            unlimitedZoomItem.ToolTipText = ZoomUnlock.Enabled
+                ? "On: Ground range " + ZoomUnlock.UnlockedMinRange + "-" + ZoomUnlock.UnlockedMaxRange + " NM. Click to restore the normal 0.1-30 NM limit."
+                : "Off: normal Ground range limit (0.1-30 NM). Click to remove it.";
         }
 
         /// <summary>
@@ -80,6 +121,7 @@ namespace BetterGroundWindow
             Type type = window.GetType();
             MenuStrip menu = type.GetField("mainMenu", PrivateInstance)?.GetValue(window) as MenuStrip;
             ToolStripMenuItem positions = type.GetField("positionsToolStripMenuItem", PrivateInstance)?.GetValue(window) as ToolStripMenuItem;
+            ToolStripMenuItem tools = type.GetField("toolsToolStripMenuItem", PrivateInstance)?.GetValue(window) as ToolStripMenuItem;
             Control display = type.GetField("asmgcsControlDX1", PrivateInstance)?.GetValue(window) as Control;
 
             if (menu == null || positions == null || menu.Items.ContainsKey("betterGroundIcaoBox"))
@@ -87,12 +129,13 @@ namespace BetterGroundWindow
                 return null;
             }
 
-            return new GroundWindowBar(window, menu, positions, display);
+            return new GroundWindowBar(window, menu, positions, tools, display);
         }
 
         public void Detach()
         {
             IcaoHistory.Changed -= IcaoHistory_Changed;
+            ZoomUnlock.EnabledChanged -= ZoomUnlock_EnabledChanged;
             errorTimer.Dispose();
         }
 

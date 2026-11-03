@@ -40,7 +40,10 @@ namespace BetterGroundWindow
 
             AppDomain.CurrentDomain.SetData(ActiveInstanceKey, typeof(BetterGroundWindowPlugin).Assembly.Location);
 
+            EmbeddedAssemblies.Register();
+            PluginSettings.Load();
             IcaoHistory.Load();
+            ZoomUnlock.Initialize();
 
             // vatSys constructs plugins on the GUI thread during MainForm load, but
             // fall back to marshalling onto it in case that ever changes.
