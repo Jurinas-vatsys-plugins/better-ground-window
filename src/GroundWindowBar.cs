@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
@@ -9,15 +9,20 @@ using vatsys;
 namespace BetterGroundWindow
 {
     /// <summary>
-    /// The ICAO box added to the menu bar of one Ground window. Typing a four-letter
-    /// ICAO code (or picking one from the ▼ history list) loads that airport's
-    /// ground position, exactly as if it had been chosen from the Position menu.
+    /// The controls added to the menu bar of one Ground window:
+    /// <code>[ICAO][▼]  Position  Maps  Tools</code>
+    /// The ICAO field is vatSys' own <see cref="TextField"/> and the ▼ history menu
+    /// is drawn by the window's own menu renderer, so both match the rest of vatSys.
+    /// Typing a code and pressing Enter loads that airport's ground position,
+    /// exactly as if it had been chosen from the Position menu.
     /// </summary>
     internal sealed class GroundWindowBar
     {
         private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        private const int ErrorFlashMs = 1200;
+        private const string FieldName = "betterGroundIcaoField";
+
+        private const int ErrorFlashMs = 1500;
 
         private readonly Form window;
 
@@ -25,57 +30,72 @@ namespace BetterGroundWindow
 
         private readonly Control groundDisplay;
 
-        private readonly ToolStripComboBox box;
+        private readonly TextField field;
+
+        private readonly ToolStripControlHost fieldHost;
+
+        private readonly ToolStripMenuItem historyMenu;
 
         private readonly Timer errorTimer = new Timer { Interval = ErrorFlashMs };
 
-        private readonly Color normalBack;
-
-        private readonly Color normalFore;
-
-        private bool updatingBox;
-
-        private readonly ToolStripMenuItem toolsMenu;
+        private readonly VatSysToolTip toolTip = new VatSysToolTip();
 
         private readonly ToolStripSeparator zoomSeparator = new ToolStripSeparator();
 
         private readonly ToolStripMenuItem unlimitedZoomItem = new ToolStripMenuItem("Unlimited Zoom");
 
+        private string currentIcao;
+
         private GroundWindowBar(Form window, MenuStrip menu, ToolStripMenuItem positionsMenu, ToolStripMenuItem toolsMenu, Control groundDisplay)
         {
-            this.toolsMenu = toolsMenu;
             this.window = window;
             this.positionsMenu = positionsMenu;
             this.groundDisplay = groundDisplay;
 
-            normalBack = Colours.GetColour(Colours.Identities.WindowBackground);
-            normalFore = Colours.GetColour(Colours.Identities.InteractiveText);
-
-            box = new ToolStripComboBox
+            field = new TextField
             {
-                Name = "betterGroundIcaoBox",
-                DropDownStyle = ComboBoxStyle.DropDown,
-                FlatStyle = FlatStyle.Flat,
+                Name = FieldName,
+                Font = MMI.eurofont_winsml,
+                CharacterCasing = CharacterCasing.Upper,
                 MaxLength = 4,
                 AutoSize = false,
-                Width = 78,
-                Font = MMI.eurofont_winsml,
-                BackColor = normalBack,
-                ForeColor = normalFore,
-                ToolTipText = "Type an ICAO code to open its ground position. ▼ shows recent airports.",
-                Margin = new Padding(0, 0, 6, 0),
+                Size = new Size(58, 21),
+                TextAlign = HorizontalAlignment.Center,
             };
-            box.ComboBox.DropDownWidth = 110;
+            field.OnReturn += (s, e) => Open(field.Text);
+            field.Escape += (s, e) =>
+            {
+                field.Text = "";
+                ClearError();
+                FocusDisplay();
+            };
+            field.KeyPress += Field_KeyPress;
+            field.TextChanged += (s, e) => ClearError();
 
-            box.KeyDown += Box_KeyDown;
-            box.KeyPress += Box_KeyPress;
-            box.TextUpdate += Box_TextUpdate;
-            box.SelectedIndexChanged += Box_SelectedIndexChanged;
+            fieldHost = new ToolStripControlHost(field)
+            {
+                Name = FieldName + "Host",
+                AutoSize = false,
+                Size = field.Size,
+                Margin = new Padding(0, 1, 0, 1),
+            };
+
+            historyMenu = new ToolStripMenuItem
+            {
+                Name = "betterGroundHistoryMenu",
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = DrawDropDownArrow(Colours.GetColour(Colours.Identities.InteractiveText)),
+                ImageScaling = ToolStripItemImageScaling.None,
+                Margin = new Padding(0, 0, 4, 0),
+            };
+            historyMenu.DropDownOpening += (s, e) => RebuildHistoryMenu();
+            RebuildHistoryMenu();
+
             errorTimer.Tick += (s, e) => ClearError();
-            IcaoHistory.Changed += IcaoHistory_Changed;
 
-            RefreshItems();
-            menu.Items.Insert(0, box);
+            menu.Items.Insert(0, fieldHost);
+            menu.Items.Insert(1, historyMenu);
+            MatchCheckMargin(historyMenu);
 
             if (toolsMenu != null)
             {
@@ -85,6 +105,82 @@ namespace BetterGroundWindow
                 UpdateZoomItem();
                 toolsMenu.DropDownItems.Add(zoomSeparator);
                 toolsMenu.DropDownItems.Add(unlimitedZoomItem);
+            }
+        }
+
+        /// <summary>
+        /// Adds the ICAO field to a Ground window. Returns null if the window's
+        /// internals don't look like the ones this plugin was written against.
+        /// </summary>
+        public static GroundWindowBar TryAttach(Form window)
+        {
+            Type type = window.GetType();
+            MenuStrip menu = type.GetField("mainMenu", PrivateInstance)?.GetValue(window) as MenuStrip;
+            ToolStripMenuItem positions = type.GetField("positionsToolStripMenuItem", PrivateInstance)?.GetValue(window) as ToolStripMenuItem;
+            ToolStripMenuItem tools = type.GetField("toolsToolStripMenuItem", PrivateInstance)?.GetValue(window) as ToolStripMenuItem;
+            Control display = type.GetField("asmgcsControlDX1", PrivateInstance)?.GetValue(window) as Control;
+
+            if (menu == null || positions == null || menu.Items.ContainsKey(FieldName + "Host"))
+            {
+                return null;
+            }
+
+            return new GroundWindowBar(window, menu, positions, tools, display);
+        }
+
+        public void Detach()
+        {
+            ZoomUnlock.EnabledChanged -= ZoomUnlock_EnabledChanged;
+            errorTimer.Dispose();
+            toolTip.Dispose();
+        }
+
+        private void Field_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!char.IsLetterOrDigit(e.KeyChar) && !char.IsControl(e.KeyChar))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void RebuildHistoryMenu()
+        {
+            historyMenu.DropDownItems.Clear();
+
+            // History items deliberately carry no Tag: vatSys' MenuRenderer flashes
+            // any top-level menu whose children have a Tag.
+            foreach (string icao in IcaoHistory.Entries)
+            {
+                ToolStripMenuItem item = new ToolStripMenuItem(icao)
+                {
+                    Checked = icao == currentIcao,
+                };
+                item.Click += (s, e) => Open(icao);
+                historyMenu.DropDownItems.Add(item);
+            }
+
+            if (IcaoHistory.Entries.Count == 0)
+            {
+                historyMenu.DropDownItems.Add(new ToolStripMenuItem("No Recent Airports") { Enabled = false });
+                return;
+            }
+
+            ToolStripMenuItem clear = new ToolStripMenuItem("Clear History");
+            clear.Click += (s, e) => IcaoHistory.Clear();
+            historyMenu.DropDownItems.Add(new ToolStripSeparator());
+            historyMenu.DropDownItems.Add(clear);
+        }
+
+        /// <summary>
+        /// Use the same check-mark margin as the window's own menus, which vatSys
+        /// sets from the user's check mark style preference.
+        /// </summary>
+        private void MatchCheckMargin(ToolStripMenuItem item)
+        {
+            if (positionsMenu.DropDown is ToolStripDropDownMenu source && item.DropDown is ToolStripDropDownMenu target)
+            {
+                target.ShowImageMargin = source.ShowImageMargin;
+                target.ShowCheckMargin = source.ShowCheckMargin;
             }
         }
 
@@ -100,141 +196,13 @@ namespace BetterGroundWindow
         {
             if (ZoomUnlock.Unavailable != null)
             {
+                unlimitedZoomItem.Text = "Unlimited Zoom (Unavailable)";
                 unlimitedZoomItem.Enabled = false;
                 unlimitedZoomItem.Checked = false;
-                unlimitedZoomItem.ToolTipText = "Unavailable: " + ZoomUnlock.Unavailable;
                 return;
             }
 
             unlimitedZoomItem.Checked = ZoomUnlock.Enabled;
-            unlimitedZoomItem.ToolTipText = ZoomUnlock.Enabled
-                ? "On: Ground range " + ZoomUnlock.UnlockedMinRange + "-" + ZoomUnlock.UnlockedMaxRange + " NM. Click to restore the normal 0.1-30 NM limit."
-                : "Off: normal Ground range limit (0.1-30 NM). Click to remove it.";
-        }
-
-        /// <summary>
-        /// Adds the ICAO box to a Ground window. Returns null if the window's
-        /// internals don't look like the ones this plugin was written against.
-        /// </summary>
-        public static GroundWindowBar TryAttach(Form window)
-        {
-            Type type = window.GetType();
-            MenuStrip menu = type.GetField("mainMenu", PrivateInstance)?.GetValue(window) as MenuStrip;
-            ToolStripMenuItem positions = type.GetField("positionsToolStripMenuItem", PrivateInstance)?.GetValue(window) as ToolStripMenuItem;
-            ToolStripMenuItem tools = type.GetField("toolsToolStripMenuItem", PrivateInstance)?.GetValue(window) as ToolStripMenuItem;
-            Control display = type.GetField("asmgcsControlDX1", PrivateInstance)?.GetValue(window) as Control;
-
-            if (menu == null || positions == null || menu.Items.ContainsKey("betterGroundIcaoBox"))
-            {
-                return null;
-            }
-
-            return new GroundWindowBar(window, menu, positions, tools, display);
-        }
-
-        public void Detach()
-        {
-            IcaoHistory.Changed -= IcaoHistory_Changed;
-            ZoomUnlock.EnabledChanged -= ZoomUnlock_EnabledChanged;
-            errorTimer.Dispose();
-        }
-
-        private void Box_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (char.IsLetter(e.KeyChar))
-            {
-                e.KeyChar = char.ToUpperInvariant(e.KeyChar);
-            }
-            else if (!char.IsDigit(e.KeyChar) && !char.IsControl(e.KeyChar))
-            {
-                e.Handled = true;
-            }
-        }
-
-        private void Box_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;
-                Open(box.Text);
-            }
-            else if (e.KeyCode == Keys.Escape)
-            {
-                e.SuppressKeyPress = true;
-                box.Text = "";
-                FocusDisplay();
-            }
-        }
-
-        private void Box_TextUpdate(object sender, EventArgs e)
-        {
-            ClearError();
-
-            // Auto-open as soon as a complete ICAO code has been typed.
-            if (IcaoHistory.IsValidIcao(IcaoHistory.Normalise(box.Text)))
-            {
-                Open(box.Text);
-            }
-        }
-
-        private void Box_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (updatingBox || box.SelectedItem == null)
-            {
-                return;
-            }
-
-            object picked = box.SelectedItem;
-
-            // Defer: changing the item list or focus while the combo is still
-            // processing its own selection change is not safe.
-            window.BeginInvoke((MethodInvoker)delegate
-            {
-                if (picked is ClearHistoryEntry)
-                {
-                    box.Text = "";
-                    IcaoHistory.Clear();
-                }
-                else
-                {
-                    Open(picked.ToString());
-                }
-            });
-        }
-
-        private void IcaoHistory_Changed(object sender, EventArgs e)
-        {
-            if (window.IsDisposed)
-            {
-                return;
-            }
-
-            RefreshItems();
-        }
-
-        private void RefreshItems()
-        {
-            updatingBox = true;
-            try
-            {
-                string text = box.Text;
-                box.Items.Clear();
-                foreach (string icao in IcaoHistory.Entries)
-                {
-                    box.Items.Add(icao);
-                }
-
-                if (IcaoHistory.Entries.Count > 0)
-                {
-                    box.Items.Add(ClearHistoryEntry.Instance);
-                }
-
-                box.Text = text;
-            }
-            finally
-            {
-                updatingBox = false;
-            }
         }
 
         private void Open(string text)
@@ -242,29 +210,21 @@ namespace BetterGroundWindow
             string icao = IcaoHistory.Normalise(text);
             if (!IcaoHistory.IsValidIcao(icao))
             {
-                ShowError("Enter a 4-character ICAO code.");
+                ShowError("ENTER A 4 LETTER ICAO CODE");
                 return;
             }
 
             LogicalPositions.Position position = FindPosition(icao);
             if (position == null)
             {
-                ShowError("No ground position for " + icao + " in this profile.");
+                ShowError("NO GROUND POSITION FOR " + icao);
                 return;
             }
 
             LoadPosition(position);
 
-            updatingBox = true;
-            try
-            {
-                box.Text = icao;
-            }
-            finally
-            {
-                updatingBox = false;
-            }
-
+            currentIcao = icao;
+            field.Text = icao;
             IcaoHistory.Add(icao);
             FocusDisplay();
         }
@@ -328,25 +288,38 @@ namespace BetterGroundWindow
 
         private void ShowError(string message)
         {
-            box.BackColor = Colours.GetColour(Colours.Identities.Warning);
-            box.ToolTipText = message;
-            box.ComboBox.SelectAll();
+            // Same warning style vatSys uses for invalid entries in its own fields.
+            field.ErrorMode(true);
+            field.SelectAll();
+            field.Focus();
+            toolTip.Show(message, field, 0, field.Height + 2, ErrorFlashMs);
             errorTimer.Stop();
             errorTimer.Start();
         }
 
         private void ClearError()
         {
+            if (!errorTimer.Enabled)
+            {
+                return;
+            }
+
             errorTimer.Stop();
-            box.BackColor = normalBack;
-            box.ToolTipText = "Type an ICAO code to open its ground position. ▼ shows recent airports.";
+            toolTip.Hide(field);
+            field.ErrorMode(false);
         }
 
-        private sealed class ClearHistoryEntry
+        private static Bitmap DrawDropDownArrow(Color colour)
         {
-            public static readonly ClearHistoryEntry Instance = new ClearHistoryEntry();
+            Bitmap bitmap = new Bitmap(9, 9);
+            using (Graphics g = Graphics.FromImage(bitmap))
+            using (Brush brush = new SolidBrush(colour))
+            {
+                g.SmoothingMode = SmoothingMode.None;
+                g.FillPolygon(brush, new[] { new Point(0, 2), new Point(9, 2), new Point(4, 7) });
+            }
 
-            public override string ToString() => "Clear history";
+            return bitmap;
         }
     }
 }

@@ -6,17 +6,17 @@ A [vatSys](https://virtualairtrafficsystem.com/) plugin for the **Ground** (ASMG
 ┌──────────────────────────────────────────────────────┐
 │ Ground: YSSY                                         │
 ├──────────────────────────────────────────────────────┤
-│ [YSSY ▼]  Position  Maps  Tools                      │
+│ [YSSY] ▼  Position  Maps  Tools                      │
 │                                                      │
 ```
 
 ## Features
 
-- **Type an ICAO code to open it.** Once four characters are in the box, the airport's ground position loads. You don't need to press Enter. Input is upper-cased automatically.
-- **Enter** reloads whatever code is in the box. **Esc** clears the box and moves focus back to the ground display.
-- **▼ history dropdown.** Airports you opened successfully are saved, newest first, up to 15 of them. Pick one to jump back to it. The last entry, *Clear history*, empties the list.
+- **Type an ICAO code and press Enter** to open that airport's ground position. Input is upper-cased automatically and limited to four letters or digits. **Esc** clears the field and moves focus back to the ground display.
+- **▼ Recent airports.** Airports you opened successfully are saved, newest first, up to 15 of them. Pick one to jump back to it. The airport currently shown is checked. *Clear History* empties the list.
 - History is shared between all Ground windows and kept across vatSys restarts in `%APPDATA%\BetterGroundWindow\history.txt`.
-- If the profile has no ground position for the code, the box flashes in the warning colour, and its tooltip gives the reason.
+- If the code is invalid, or the profile has no ground position for it, the field turns the vatSys warning colour and a short message appears below it.
+- **It looks like vatSys.** The ICAO field is vatSys' own `TextField` control: the sunken border, the highlight outline when focused, and the warning colour. The ▼ menu and the Unlimited Zoom item are drawn by the window's own menu renderer. Everything uses the profile's `Colours.xml` and the vatSys Terminus font, so it follows whatever colour scheme the profile uses.
 
 When an airport has more than one ground position, the plugin picks a position named exactly after the ICAO code first. If there is none, it picks one whose name starts with the code, and after that the first one alphabetically. The other positions are still available from the normal **Position** menu.
 
@@ -27,14 +27,15 @@ Loading a position goes through the window's existing Position menu item. Check 
 vatSys normally limits a Ground display to a range of **0.1 to 30 NM**. Turn on **Tools → Unlimited Zoom** in any Ground window to widen that to **0.01 to 9999 NM**. Click it again to turn it off.
 
 - The option is off by default. It applies to all Ground windows at once and is remembered across restarts in `%APPDATA%\BetterGroundWindow\settings.txt`.
-- It works for every way of zooming: range keys, the zoom box, *Default*/*Restore*, and wheel-zoom plugins such as Persistent Pan.
+- It works for every way of zooming: range keys, the zoom box, *Default*/*Restore*, and the mouse wheel.
+- **Mouse wheel:** vatSys has no wheel zoom of its own; the wheel comes from plugins such as *Persistent Pan* / *Drag And Zoom*. Those step the range in whole nautical miles, so on their own they stop at about 2 NM (`round(2 × 0.8) = 2`). While Unlimited Zoom is on, this plugin takes over their `ZoomWithWheel` on Ground displays and zooms in fractional ×0.8 / ×1.25 steps, all the way down to 0.01 NM. Radar windows, and Ground windows with the option off, still use the other plugin's own wheel code.
 - Only Ground displays are affected. Radar ASD windows keep their normal limits.
 - When you turn it off, any Ground window zoomed past the normal limits snaps back inside them.
-- If the plugin cannot patch your vatSys version, the menu item is greyed out and its tooltip says why.
+- If the plugin cannot patch your vatSys version, the menu item reads *Unlimited Zoom (Unavailable)* and is greyed out.
 
 ## How it works
 
-The vatSys SDK only exposes `vatsys.Plugin.IPlugin` and does not give plugins access to the Ground window. The plugin is exported through MEF, as the SDK requires. Every 500 ms it looks through `Application.OpenForms` for `vatsys.ASMGCSWindow` instances. When it finds a new one, it uses reflection to insert a `ToolStripComboBox` into that window's private `mainMenu`.
+The vatSys SDK only exposes `vatsys.Plugin.IPlugin` and does not give plugins access to the Ground window. The plugin is exported through MEF, as the SDK requires. Every 500 ms it looks through `Application.OpenForms` for `vatsys.ASMGCSWindow` instances. When it finds a new one, it uses reflection to insert a vatSys `TextField` (hosted in a `ToolStripControlHost`) and a ▼ menu item into that window's private `mainMenu`.
 
 Private members it relies on (verified against vatSys 0.4.9305):
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Windows.Forms;
 using HarmonyLib;
 using vatsys;
 
@@ -57,6 +58,90 @@ namespace BetterGroundWindow
                 new Harmony(HarmonyId).Unpatch(target, HarmonyPatchType.Transpiler, HarmonyId);
                 throw new InvalidOperationException("This vatSys version's zoom code is not recognised (" + patchedSites + "/4 limits found).");
             }
+
+            PatchWheelZoomPlugins();
+        }
+
+        /// <summary>Type names of wheel-zoom plugins whose ZoomWithWheel is handled.</summary>
+        public static readonly List<string> WheelPluginsPatched = new List<string>();
+
+        private const double WheelZoomInFactor = 0.8;
+
+        private const double WheelZoomOutFactor = 1.25;
+
+        private static readonly FieldInfo RangeField = AccessTools.Field(AsdControlType, "range");
+
+        private static readonly MethodInfo SetZoomMethod = AccessTools.Method(AsdControlType, "SetZoom", new[] { typeof(double), typeof(bool), typeof(bool), typeof(bool) });
+
+        /// <summary>
+        /// Wheel-zoom plugins (Persistent Pan / Drag And Zoom) step the range in
+        /// whole NM using the int GetRange(), so they stall around 2 NM:
+        /// round(2 * 0.8) == 2. While Unlimited Zoom is on, their ZoomWithWheel is
+        /// replaced for Ground displays with fractional steps on the real range.
+        /// vatSys loads every plugin assembly before constructing any plugin, so
+        /// they can all be found here.
+        /// </summary>
+        private static void PatchWheelZoomPlugins()
+        {
+            Harmony harmony = new Harmony(HarmonyId);
+            HarmonyMethod prefix = new HarmonyMethod(typeof(ZoomPatch), nameof(WheelZoomPrefix));
+
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (assembly == typeof(ZoomPatch).Assembly || assembly.IsDynamic)
+                {
+                    continue;
+                }
+
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types;
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                foreach (Type type in types)
+                {
+                    MethodInfo wheel = type?.GetMethod("ZoomWithWheel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                        null, new[] { typeof(Control), typeof(int) }, null);
+                    if (wheel == null || wheel.ReturnType != typeof(void))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        harmony.Patch(wheel, prefix: prefix);
+                        WheelPluginsPatched.Add(type.FullName);
+                    }
+                    catch (Exception)
+                    {
+                        // Leave that plugin's wheel zoom as it is.
+                    }
+                }
+            }
+        }
+
+        private static bool WheelZoomPrefix(Control __0, int __1)
+        {
+            Control display = __0;
+            if (display == null || __1 == 0 || !AsdControlType.IsInstanceOfType(display) || !Unlocked(display)
+                || !(RangeField?.GetValue(display) is double range))
+            {
+                return true;
+            }
+
+            double next = range * (__1 > 0 ? WheelZoomInFactor : WheelZoomOutFactor);
+            SetZoomMethod.Invoke(display, new object[] { next, true, true, false });
+            display.Invalidate();
+            return false;
         }
 
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
