@@ -51,16 +51,50 @@ The project references `vatSys.exe` from `G:\vatSys\vatSys\bin` by default. To u
 dotnet build -c Release -p:VatSysBin="C:\Program Files (x86)\vatSys\bin"
 ```
 
-Output: `bin\Release\net472\BetterGroundWindow.dll`
+Output:
+
+- `bin\Release
+et472\BetterGroundWindow.dll`, the plugin itself
+- `dist\BetterGroundWindow-<version>.zip`, a release package with the DLL, this README and the install script inside a single `BetterGroundWindow` folder
 
 ## Installing
 
-Copy `BetterGroundWindow.dll` into one of the folders vatSys scans for plugins:
+vatSys loads plugins from two places. You can install into either one, or both:
 
-- `<vatSys install>\bin\Plugins\`
-- `<your profile folder>\Plugins\`
+| Location | Path | Loaded for |
+| --- | --- | --- |
+| Profile | `DocumentsatSys Files\Profiles\<profile>\Plugins\` | That profile only |
+| vatSys program | `<vatSys install>in\Plugins\` | Every profile |
 
-Then restart vatSys and open a Ground window from the main menu.
+vatSys searches both folders recursively, so the plugin can sit in its own `BetterGroundWindow` sub-folder. If it is installed in both places, only one copy runs. vatSys scans the profile folder first, so the profile copy is the one that runs.
+
+### With the install script
+
+Run this from the repository after building, or from an extracted release zip:
+
+```powershell
+# Into a profile, by name (from DocumentsatSys Files\Profiles)
+.\Install-BetterGroundWindow.ps1 -ProfileName "ZBPE FIR Beijing"
+
+# Into a profile, by full path
+.\Install-BetterGroundWindow.ps1 -ProfilePath "D:atSys Profiles\Australia"
+
+# Into the vatSys program folder (applies to all profiles)
+.\Install-BetterGroundWindow.ps1 -VatSysBin "C:\Program Files (x86)atSysin"
+
+# Remove it again: add -Uninstall to any of the above
+.\Install-BetterGroundWindow.ps1 -ProfileName "ZBPE FIR Beijing" -Uninstall
+```
+
+The script copies the DLL to `<target>\Plugins\BetterGroundWindow\BetterGroundWindow.dll`. It also removes any older copy placed loose in `Plugins\`. Installing under `Program Files` needs an elevated PowerShell. Close vatSys before installing.
+
+### By hand
+
+Extract the release zip into either `Plugins` folder above, so you end up with `Plugins\BetterGroundWindow\BetterGroundWindow.dll`. Then restart vatSys and open a Ground window from the main menu.
+
+### Including it in a profile you distribute
+
+Profile maintainers can ship the plugin with their profile. Put the `BetterGroundWindow` folder from the release zip into the profile's `Plugins` folder. The plugin needs no other files and no profile XML changes. It keeps its history per Windows user in `%APPDATA%`, not in the profile, so the profile folder stays clean.
 
 ## License
 

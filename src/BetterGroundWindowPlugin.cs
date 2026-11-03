@@ -20,6 +20,8 @@ namespace BetterGroundWindow
 
         private const int ScanIntervalMs = 500;
 
+        private const string ActiveInstanceKey = "BetterGroundWindow.ActiveInstance";
+
         private readonly Dictionary<Form, GroundWindowBar> bars = new Dictionary<Form, GroundWindowBar>();
 
         private Timer scanTimer;
@@ -28,6 +30,16 @@ namespace BetterGroundWindow
 
         public BetterGroundWindowPlugin()
         {
+            // The DLL may be installed in both <profile>\Plugins and <vatSys>\bin\Plugins.
+            // Two different builds would load as two instances, so only the first one
+            // (vatSys scans the profile folder first) does any work.
+            if (AppDomain.CurrentDomain.GetData(ActiveInstanceKey) != null)
+            {
+                return;
+            }
+
+            AppDomain.CurrentDomain.SetData(ActiveInstanceKey, typeof(BetterGroundWindowPlugin).Assembly.Location);
+
             IcaoHistory.Load();
 
             // vatSys constructs plugins on the GUI thread during MainForm load, but

@@ -29,4 +29,21 @@
     </Reference>
   </ItemGroup>
 
+  <!--
+    Release builds also produce dist\BetterGroundWindow-<version>.zip. Its single
+    top-level BetterGroundWindow folder can be extracted into either
+    <profile>\Plugins or <vatSys>\bin\Plugins (vatSys scans both recursively).
+  -->
+  <Target Name="PackageRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <PackageStaging>$(BaseIntermediateOutputPath)package\</PackageStaging>
+      <PackageZip>$(MSBuildProjectDirectory)\dist\BetterGroundWindow-$(Version).zip</PackageZip>
+    </PropertyGroup>
+    <RemoveDir Directories="$(PackageStaging)" />
+    <Copy SourceFiles="$(TargetPath);README.md;Install-BetterGroundWindow.ps1" DestinationFolder="$(PackageStaging)BetterGroundWindow" />
+    <MakeDir Directories="$(MSBuildProjectDirectory)\dist" />
+    <ZipDirectory SourceDirectory="$(PackageStaging)" DestinationFile="$(PackageZip)" Overwrite="true" />
+    <Message Importance="high" Text="Release package: $(PackageZip)" />
+  </Target>
+
 </Project>
