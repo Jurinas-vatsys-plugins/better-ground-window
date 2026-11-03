@@ -1,6 +1,6 @@
 # Better Ground Window
 
-A [vatSys](https://virtualairtrafficsystem.com/) plugin for the **Ground** (ASMGCS) window. It adds an ICAO quick-jump box to the window's menu bar, plus an option to remove the Ground zoom limit.
+A [vatSys](https://virtualairtrafficsystem.com/) plugin for the **Ground** (ASMGCS) window. It adds an ICAO quick-jump box to the window's menu bar, an option to remove the Ground zoom limit, and an Easy Mode that shows callsigns for aircraft without Mode C.
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -33,6 +33,28 @@ vatSys normally limits a Ground display to a range of **0.1 to 30 NM**. Turn on 
 - When you turn it off, any Ground window zoomed past the normal limits snaps back inside them.
 - If the plugin cannot patch your vatSys version, the menu item reads *Unlimited Zoom (Unavailable)* and is greyed out.
 
+### Easy Mode
+
+vatSys draws an aircraft on the ground that has no Mode C (transponder on standby) and no coupled flight plan as a bare symbol, with no label. **Easy Mode** gives those aircraft a small Ground label with their network callsign.
+
+- **Toggle:** press **Ctrl+T** in any vatSys window, or use **Tools → Easy Mode** in a Ground window. Easy Mode is **off** every time vatSys starts.
+- **Only for aircraft without Mode C.** Aircraft with Mode C, Mode S/ADS-B or a coupled flight plan are labelled by vatSys exactly as before. Once a pilot turns Mode C on, vatSys' own label takes over automatically.
+- **Display only.** Easy Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra labels cannot be clicked, so they cannot open menus or couple anything. Only drawing is affected, and only on Ground windows. Radar ASD labels are unchanged.
+- **Custom key:** open **Settings → Better Ground Window** in the main window, or **Tools → Better Ground Settings** in a Ground window. Click the key button and press the new combination. *Del* or *Backspace* removes the hotkey, and *Esc* cancels. The key is saved in `%APPDATA%\BetterGroundWindow\settings.txt`.
+
+### Settings window
+
+The settings window is a normal vatSys window. It uses vatSys' window frame, buttons, colours and font, and every change applies immediately:
+
+```
+┌ Better Ground Window ─────────────────── × ┐
+│ Easy Mode                     [    On    ] │
+│ Easy Mode Key                 [  Ctrl+T  ] │
+│ Unlimited Zoom                [   Off    ] │
+│                               [  Close   ] │
+└────────────────────────────────────────────┘
+```
+
 ## How it works
 
 The vatSys SDK only exposes `vatsys.Plugin.IPlugin` and does not give plugins access to the Ground window. The plugin is exported through MEF, as the SDK requires. Every 500 ms it looks through `Application.OpenForms` for `vatsys.ASMGCSWindow` instances. When it finds a new one, it uses reflection to insert a vatSys `TextField` (hosted in a `ToolStripControlHost`) and a ▼ menu item into that window's private `mainMenu`.
@@ -47,10 +69,19 @@ Private members it relies on (verified against vatSys 0.4.9305):
 | `ASMGCSWindow.positionItem_Click` | Fallback when a position has no menu item |
 | `ASMGCSWindow.toolsToolStripMenuItem` | Where the Unlimited Zoom item goes |
 | `ASDControlDX.SetZoom`, `asdType`, `range` | The zoom limit patch |
+| `ASDControlDX.PaintGroundTracks`, `PaintLabel` | The Easy Mode patch |
 
 If a future vatSys release renames these, the plugin does nothing to that window. It does not crash vatSys.
 
 The zoom limit is hard-coded in `ASDControlDX.SetZoom`, which clamps the range to `MMI.MinimumASDRange`/`MaximumASDRange` and then clamps the internal zoom factor to 0.5–16000. A [Harmony](https://github.com/pardeike/Harmony) transpiler runs at startup. After each of those four limits it inserts a call to the plugin, which widens the limit only when Unlimited Zoom is on and the display is a Ground display. If the plugin cannot find exactly those four limits, it removes its patch and disables the option.
+
+Easy Mode uses three Harmony patches, all of them in the paint code:
+
+1. In `PaintGroundTracks`, the branch for an on-ground track with no flight plan and no Mode C/S/ADS-B stores `track.HasASMGCSLabel = false`. That value is replaced with "Easy Mode is on and this aircraft has a pilot", so the track gets vatSys' GroundLimited label. `HasASMGCSLabel` is only read by the painter and by label dragging.
+2. In `PaintLabel`, the `LABEL_ITEM_ACID` text is empty for such a track. Just before vatSys checks it, the pilot's network callsign is put in.
+3. A prefix and postfix on `PaintLabel` remove the clickspots that were added while painting such a label.
+
+If either code pattern isn't found exactly once, all three patches are removed and Easy Mode shows as *(Unavailable)*.
 
 Harmony 2.3.3 is embedded inside `BetterGroundWindow.dll`, so the plugin is still a single file. If another plugin has already loaded a compatible Harmony 2.x (VATPRCPlugin ships 2.3.3, for example), the plugin uses that copy.
 

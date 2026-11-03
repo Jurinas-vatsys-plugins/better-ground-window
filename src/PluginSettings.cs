@@ -27,6 +27,27 @@ namespace BetterGroundWindow
             }
         }
 
+        /// <summary>Easy Mode toggle key, or null if never customised.</summary>
+        public static System.Windows.Forms.Keys? EasyModeHotkey
+        {
+            get => values.TryGetValue(nameof(EasyModeHotkey), out string v) && int.TryParse(v, out int k)
+                ? (System.Windows.Forms.Keys)k
+                : (System.Windows.Forms.Keys?)null;
+            set
+            {
+                if (value == null)
+                {
+                    values.Remove(nameof(EasyModeHotkey));
+                }
+                else
+                {
+                    values[nameof(EasyModeHotkey)] = ((int)value.Value).ToString();
+                }
+
+                Save();
+            }
+        }
+
         public static void Load()
         {
             values.Clear();

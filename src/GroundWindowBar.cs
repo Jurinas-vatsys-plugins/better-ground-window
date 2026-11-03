@@ -44,6 +44,10 @@ namespace BetterGroundWindow
 
         private readonly ToolStripMenuItem unlimitedZoomItem = new ToolStripMenuItem("Unlimited Zoom");
 
+        private readonly ToolStripMenuItem easyModeItem = new ToolStripMenuItem("Easy Mode");
+
+        private readonly ToolStripMenuItem settingsItem = new ToolStripMenuItem("Better Ground Settings");
+
         private string currentIcao;
 
         private GroundWindowBar(Form window, MenuStrip menu, ToolStripMenuItem positionsMenu, ToolStripMenuItem toolsMenu, Control groundDisplay)
@@ -101,10 +105,20 @@ namespace BetterGroundWindow
             {
                 unlimitedZoomItem.Name = "betterGroundUnlimitedZoom";
                 unlimitedZoomItem.Click += (s, e) => ZoomUnlock.SetEnabled(!ZoomUnlock.Enabled);
-                ZoomUnlock.EnabledChanged += ZoomUnlock_EnabledChanged;
-                UpdateZoomItem();
+                ZoomUnlock.EnabledChanged += OnFeatureChanged;
+
+                easyModeItem.Name = "betterGroundEasyMode";
+                easyModeItem.Click += (s, e) => EasyMode.SetEnabled(!EasyMode.Enabled);
+                EasyMode.Changed += OnFeatureChanged;
+
+                settingsItem.Name = "betterGroundSettings";
+                settingsItem.Click += (s, e) => SettingsWindow.ShowSettings(window);
+
+                UpdateToolItems();
                 toolsMenu.DropDownItems.Add(zoomSeparator);
                 toolsMenu.DropDownItems.Add(unlimitedZoomItem);
+                toolsMenu.DropDownItems.Add(easyModeItem);
+                toolsMenu.DropDownItems.Add(settingsItem);
             }
         }
 
@@ -130,7 +144,8 @@ namespace BetterGroundWindow
 
         public void Detach()
         {
-            ZoomUnlock.EnabledChanged -= ZoomUnlock_EnabledChanged;
+            ZoomUnlock.EnabledChanged -= OnFeatureChanged;
+            EasyMode.Changed -= OnFeatureChanged;
             errorTimer.Dispose();
             toolTip.Dispose();
         }
@@ -184,25 +199,28 @@ namespace BetterGroundWindow
             }
         }
 
-        private void ZoomUnlock_EnabledChanged(object sender, EventArgs e)
+        private void OnFeatureChanged(object sender, EventArgs e)
         {
             if (!window.IsDisposed)
             {
-                UpdateZoomItem();
+                UpdateToolItems();
             }
         }
 
-        private void UpdateZoomItem()
+        private void UpdateToolItems()
         {
-            if (ZoomUnlock.Unavailable != null)
-            {
-                unlimitedZoomItem.Text = "Unlimited Zoom (Unavailable)";
-                unlimitedZoomItem.Enabled = false;
-                unlimitedZoomItem.Checked = false;
-                return;
-            }
+            UpdateToggleItem(unlimitedZoomItem, "Unlimited Zoom", ZoomUnlock.Enabled, ZoomUnlock.Unavailable);
+            UpdateToggleItem(easyModeItem, "Easy Mode", EasyMode.Enabled, EasyMode.Unavailable);
 
-            unlimitedZoomItem.Checked = ZoomUnlock.Enabled;
+            // Redraw now so a hotkey toggle shows straight away.
+            groundDisplay?.Invalidate();
+        }
+
+        private static void UpdateToggleItem(ToolStripMenuItem item, string caption, bool on, string unavailable)
+        {
+            item.Text = unavailable != null ? caption + " (Unavailable)" : caption;
+            item.Enabled = unavailable == null;
+            item.Checked = unavailable == null && on;
         }
 
         private void Open(string text)

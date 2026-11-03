@@ -46,15 +46,30 @@ namespace BetterGroundWindow
             ZoomUnlock.Initialize();
 
             // vatSys constructs plugins on the GUI thread during MainForm load, but
-            // fall back to marshalling onto it in case that ever changes.
+            // fall back to marshalling onto it in case that ever changes. The hotkey
+            // message filter and timers must live on the GUI thread.
             if (SynchronizationContextIsWinForms())
             {
-                StartScanning();
+                StartOnGuiThread();
             }
             else
             {
-                MMI.InvokeOnGUI(StartScanning);
+                MMI.InvokeOnGUI(StartOnGuiThread);
             }
+        }
+
+        private void StartOnGuiThread()
+        {
+            EasyMode.Initialize();
+
+            // Main window: Settings > Better Ground Window. vatSys adds plugin menu
+            // items to the main menu right after constructing the plugins.
+            ToolStripMenuItem settings = new ToolStripMenuItem("Better Ground Window");
+            settings.Click += (s, e) => SettingsWindow.ShowSettings(Form.ActiveForm);
+            MMI.AddCustomMenuItem(new CustomToolStripMenuItem(
+                CustomToolStripMenuItemWindowType.Main, CustomToolStripMenuItemCategory.Settings, settings));
+
+            StartScanning();
         }
 
         public void OnFDRUpdate(FDP2.FDR updated)
