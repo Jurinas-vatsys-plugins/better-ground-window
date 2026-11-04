@@ -45,7 +45,7 @@ For working top-down (covering TWR/GND from a radar position). Turn it on with *
 - **Ground windows are not affected.** The main ASD picks its airports from its own view only. Ground windows keep their own position and maps; Top-Down Mode never adds or removes maps there. The only Top-Down Mode effect inside a Ground window is the callsign label for aircraft without Mode C.
 - **Display only.** Top-Down Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra callsign labels cannot be clicked, so they cannot open menus or couple anything.
 - **Ground maps by hand.** The main window's **Maps** menu also has a **Ground Maps** submenu with every airport's ground maps, so you can show any of them yourself, with or without Top-Down Mode. Top-Down Mode leaves maps you ticked there alone. Like other ASD maps, they reset when you change position. While Top-Down Mode is showing an airport, its maps come back even if you untick them.
-- **Limitation:** on the main ASD, dragging a ground label with the right mouse button uses vatSys' radar-label drag, so ground labels there keep the position set in a Ground window.
+- **Moving labels.** Ground labels on the main ASD can be moved the same way as in a Ground window: right-click the aircraft, move the mouse, and click again to drop the label. The position is shared with the Ground windows, so a label moved on the main ASD is moved there too, and the other way round. The aircraft's radar label position, used when it is drawn as a radar track, is not changed.
 - **Custom key:** in the settings window, click the key button and press the new combination. *Reset* restores Ctrl+T, *Clear*, *Del* or *Backspace* removes the hotkey, and *Esc* cancels. The key is saved in `%APPDATA%\BetterGroundWindow\settings.txt`.
 
 ### Scale Marker
@@ -104,6 +104,8 @@ The top-down view adds three more patches:
 1. A prefix on `PaintTracksLabels` does the work on the main ASD while Top-Down Mode is on and the range is within the Top-Down Range. It sends on-ground tracks to vatSys' own `PaintGroundTracks` and everything else to `PaintASDTracks`.
 2. `SelectBrush` and `SelectGroundBrush` read `asdType` through the plugin, which reports "Ground" while the ground tracks are being painted. vatSys then picks its ground colours.
 3. `PaintGroundTracks` and `SelectGroundBrush` read the Ground window's airport (`DisplayPosition.ASMGCSAirport`) through the plugin. On a Ground window this returns the same airport as before. On the main ASD it returns the track's departure or destination airport if the aircraft is within 5 NM of it.
+
+4. A prefix and postfix on `ASD_MouseDown` make label dragging on the main ASD move the ground label. vatSys drags labels on non-Ground displays through the radar-label fields (`HasASDLabel`, `ASDLabelDirection`, `ASDLabelLeaderLength`). For each click, the tracks drawn Ground-style get their ground label position in those fields. Afterwards, any new position is stored as the ground label position (`ASMGCSLabelDirection`, `ASMGCSLabelLeaderLength`) and the radar label fields are restored.
 
 If these patterns aren't found exactly as expected, only the top-down view is switched off. Top-Down Mode on Ground windows keeps working.
 

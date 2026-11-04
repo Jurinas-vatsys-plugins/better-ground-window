@@ -88,6 +88,17 @@ namespace BetterGroundWindow
                 Expect("SelectBrush", 1, 0);
                 Expect("SelectGroundBrush", 1, 3);
                 Expect("PaintGroundTracks", 0, 2);
+
+                // Dragging ground labels on the main ASD. Optional: without it the
+                // view still works, labels just keep their Ground window position.
+                MethodInfo mouseDown = AccessTools.Method(AsdControlType, "ASD_MouseDown", new[] { typeof(object), typeof(System.Windows.Forms.MouseEventArgs) });
+                if (mouseDown != null && AccessTools.Field(typeof(Track), nameof(Track.HasASDLabel)) != null)
+                {
+                    harmony.Patch(mouseDown,
+                        prefix: new HarmonyMethod(typeof(TopDownPatch), nameof(MouseDownPrefix)),
+                        postfix: new HarmonyMethod(typeof(TopDownPatch), nameof(MouseDownPostfix)));
+                    sites["ASD_MouseDown:labelDrag"] = 1;
+                }
             }
             catch
             {
@@ -165,6 +176,11 @@ namespace BetterGroundWindow
         {
             if (tracks == null || !Active(__instance))
             {
+                if (Convert.ToInt32(AsdTypeField.GetValue(__instance)) == MainAsdType)
+                {
+                    groundPainted = new Track[0];
+                }
+
                 return true;
             }
 
@@ -174,6 +190,8 @@ namespace BetterGroundWindow
             {
                 (IsGroundTrack(track) ? ground : rest).Add(track);
             }
+
+            groundPainted = ground.ToArray();
 
             // Ground first, so airborne traffic and its labels are drawn on top.
             groundScope = true;
@@ -188,6 +206,78 @@ namespace BetterGroundWindow
 
             Call(PaintAsdTracks, __instance, renderParams, rest, renderClickSpots);
             return false;
+        }
+
+        /// <summary>Tracks the main ASD last drew Ground-style (written by the render, read on clicks).</summary>
+        private static volatile Track[] groundPainted = new Track[0];
+
+        /// <summary>A ground-painted track's radar-label fields, saved around a click.</summary>
+        private sealed class SavedLabel
+        {
+            public Track Track;
+            public bool HasAsdLabel;
+            public int AsdDirection;
+            public int AsdLength;
+            public int SetDirection;
+            public int SetLength;
+        }
+
+        /// <summary>
+        /// Label dragging on the main ASD goes through vatSys' radar-label path
+        /// (HasASDLabel / ASDLabelDirection / ASDLabelLeaderLength), because the
+        /// display is not a Ground display. For the click, give every track drawn
+        /// Ground-style its ground label position in those fields, so vatSys picks
+        /// up, previews and drops the ground label. The postfix stores any new
+        /// position as the ground label position and restores the radar label.
+        /// </summary>
+        private static void MouseDownPrefix(object __instance, out List<SavedLabel> __state)
+        {
+            __state = null;
+            Track[] ground = groundPainted;
+            if (ground.Length == 0 || !Active(__instance))
+            {
+                return;
+            }
+
+            __state = new List<SavedLabel>(ground.Length);
+            foreach (Track track in ground)
+            {
+                __state.Add(new SavedLabel
+                {
+                    Track = track,
+                    HasAsdLabel = track.HasASDLabel,
+                    AsdDirection = track.ASDLabelDirection,
+                    AsdLength = track.ASDLabelLeaderLength,
+                    SetDirection = track.ASMGCSLabelDirection,
+                    SetLength = track.ASMGCSLabelLeaderLength,
+                });
+                track.HasASDLabel = track.HasASMGCSLabel;
+                track.ASDLabelDirection = track.ASMGCSLabelDirection;
+                track.ASDLabelLeaderLength = track.ASMGCSLabelLeaderLength;
+            }
+        }
+
+        private static void MouseDownPostfix(List<SavedLabel> __state)
+        {
+            if (__state == null)
+            {
+                return;
+            }
+
+            foreach (SavedLabel saved in __state)
+            {
+                Track track = saved.Track;
+                if (track.ASDLabelDirection != saved.SetDirection || track.ASDLabelLeaderLength != saved.SetLength)
+                {
+                    // vatSys dropped the label: that is the new ground label position.
+                    track.ASMGCSLabelDirection = track.ASDLabelDirection;
+                    track.ASMGCSLabelLeaderLength = track.ASDLabelLeaderLength;
+                }
+
+                track.HasASDLabel = saved.HasAsdLabel;
+                track.ASDLabelDirection = saved.AsdDirection;
+                track.ASDLabelLeaderLength = saved.AsdLength;
+            }
         }
 
         /// <summary>
