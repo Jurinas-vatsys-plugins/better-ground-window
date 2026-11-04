@@ -1,0 +1,83 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  VATSYS_URL: https://vatsys.sawbe.com/downloads/vatSysSetup.zip
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # vatSys.exe is only referenced, never shipped. It comes from the official
+      # installer, cached until sawbe.com publishes a new one.
+      - name: Check vatSys installer
+        id: vatsys
+        run: |
+          $r = Invoke-WebRequest -Method Head -Uri $env:VATSYS_URL
+          $stamp = ([DateTime]"$($r.Headers['Last-Modified'])").ToString('yyyyMMddHHmmss')
+          "stamp=$stamp" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ runner.temp }}/vatsys
+          key: vatsys-${{ steps.vatsys.outputs.stamp }}
+
+      - name: Download vatSys
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'vatSysSetup.zip'
+          $setup = Join-Path $env:RUNNER_TEMP 'vatsys-setup'
+          Invoke-WebRequest -Uri $env:VATSYS_URL -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $setup -Force
+          $msi = Get-ChildItem $setup -Filter *.msi -Recurse | Select-Object -First 1
+          $p = Start-Process msiexec -Wait -PassThru -ArgumentList '/a', "`"$($msi.FullName)`"", '/qn', "TARGETDIR=`"$env:RUNNER_TEMP\vatsys`""
+          if ($p.ExitCode -ne 0) { throw "msiexec failed with $($p.ExitCode)" }
+
+      - name: Locate vatSys
+        run: |
+          $exe = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'vatsys') -Filter vatSys.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw 'vatSys.exe not found in the installer' }
+          Write-Host "Using $($exe.FullName) $($exe.VersionInfo.FileVersion)"
+          "VATSYS_BIN=$($exe.DirectoryName)" >> $env:GITHUB_ENV
+
+      - name: Build
+        run: |
+          $buildArgs = @('-c', 'Release', "-p:VatSysBin=$env:VATSYS_BIN")
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $buildArgs += "-p:Version=$($env:GITHUB_REF_NAME.TrimStart('v'))" }
+          dotnet build BetterGroundWindow.csproj @buildArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $zip = Get-ChildItem dist -Filter *.zip | Select-Object -First 1
+          "PACKAGE=$($zip.FullName)" >> $env:GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BetterGroundWindow
+          path: dist/*.zip
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $env:PACKAGE --clobber
+          } else {
+            gh release create $tag $env:PACKAGE --title "Better Ground Window $($tag.TrimStart('v'))" --generate-notes
+          }
