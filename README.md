@@ -41,7 +41,9 @@ vatSys draws an aircraft on the ground that has no Mode C (transponder on standb
 - **Only for aircraft without Mode C.** Aircraft with Mode C, Mode S/ADS-B or a coupled flight plan are labelled by vatSys exactly as before. Once a pilot turns Mode C on, vatSys' own label takes over automatically.
 - **Display only.** Easy Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra labels cannot be clicked, so they cannot open menus or couple anything. Only drawing is affected.
 - **Top-down view on the main screen.** While Easy Mode is on and the main ASD range is **30 NM or less**, aircraft on the ground are drawn on the main ASD the way a Ground window draws them: ground symbols, Ground labels (including the Easy Mode callsigns) and ground colours. Departure, arrival and local colours are worked out from the flight plan when the aircraft is within 5 NM of its departure or destination airport. Airborne traffic is drawn as normal radar tracks on top. Zoom out past 30 NM, or turn Easy Mode off, and the main ASD goes back to normal. Extra ASD windows are not affected.
-- **Ground maps on the main screen.** The main window's **Maps** menu has a **Ground Maps** submenu with each airport's runway, taxiway, apron and building maps, the same ones a Ground window offers. Tick the ones you want, as with any other map. They work whether Easy Mode is on or off, and like other ASD maps they reset when you change position.
+- **Ground drawings on the main screen, automatically.** Under the same conditions (Easy Mode on, main ASD at 30 NM or less), the main ASD also shows the ground maps that your open Ground windows are showing: runways, taxiways, taxilines, aprons, buildings and labels. It follows the Ground windows. Tick or untick a map there and the main ASD follows within half a second. Zoom out past 30 NM, turn Easy Mode off, or close the Ground windows, and these maps are removed again. While the view is active, maps that the Ground windows show come back even if you untick them in the main Maps menu.
+- **Ground maps by hand.** The main window's **Maps** menu also has a **Ground Maps** submenu with every airport's ground maps, so you can show one without opening a Ground window. These work whether Easy Mode is on or off, and they are left alone by the automatic mirroring. Like other ASD maps, they reset when you change position.
+- **Main ASD zoom.** vatSys does not let the main ASD zoom in closer than 10 NM. Unlimited Zoom only lifts the Ground window limit. At 10 NM a large airport such as ZBAA is drawn quite small.
 - **Limitation:** on the main ASD, dragging a ground label with the right mouse button uses vatSys' radar-label drag, so ground labels there keep the position set in a Ground window.
 - **Custom key:** open **Settings → Better Ground Window** in the main window, or **Tools → Better Ground Settings** in a Ground window. Click the key button and press the new combination. *Del* or *Backspace* removes the hotkey, and *Esc* cancels. The key is saved in `%APPDATA%\BetterGroundWindow\settings.txt`.
 
@@ -75,6 +77,7 @@ Private members it relies on (verified against vatSys 0.4.9305):
 | `ASDControlDX.PaintGroundTracks`, `PaintLabel` | The Easy Mode patch |
 | `ASDControlDX.PaintTracksLabels`, `PaintASDTracks`, `SelectBrush`, `SelectGroundBrush` | The main-ASD top-down view |
 | `MMI.MainForm`, `MainForm.mapsToolStripMenuItem`, `mapItem_Click`, `MapsDropDown_Closing` | The Ground Maps submenu |
+| `MainForm.ASD`, `ASDControlDX.IsMapVisible`/`SetMapVisible` | Mirroring Ground window maps onto the main ASD |
 
 If a future vatSys release renames these, the plugin does nothing to that window. It does not crash vatSys.
 

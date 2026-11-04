@@ -70,8 +70,29 @@ namespace BetterGroundWindow
                 ? null
                 : (ToolStripDropDownClosingEventHandler)Delegate.CreateDelegate(typeof(ToolStripDropDownClosingEventHandler), main, keepOpen);
 
+            // The main ASD itself, to refresh check marks: maps can also be made
+            // visible by MainAsdGroundMirror or reset by a position change.
+            Control asd = type.GetField("ASD", PrivateInstance)?.GetValue(main) as Control;
+            MethodInfo isVisible = asd?.GetType().GetMethod("IsMapVisible", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(DisplayMaps.Map) }, null);
+            EventHandler syncChecks = (s, e) =>
+            {
+                if (asd == null || isVisible == null || asd.IsDisposed)
+                {
+                    return;
+                }
+
+                foreach (ToolStripMenuItem item in ((ToolStripMenuItem)s).DropDownItems.OfType<ToolStripMenuItem>())
+                {
+                    if (item.Tag is DisplayMaps.Map map)
+                    {
+                        item.Checked = (bool)isVisible.Invoke(asd, new object[] { map });
+                    }
+                }
+            };
+
             ToolStripMenuItem root = new ToolStripMenuItem("Ground Maps") { Name = MenuName };
             Prepare(root, maps, closing);
+            root.DropDownOpening += syncChecks;
 
             // Same layout as the Ground window's Maps menu: one submenu per folder
             // (usually the airport). No separators: vatSys' map menu code casts
@@ -83,6 +104,7 @@ namespace BetterGroundWindow
                 {
                     ToolStripMenuItem sub = new ToolStripMenuItem(folder);
                     Prepare(sub, maps, closing);
+                    sub.DropDownOpening += syncChecks;
                     root.DropDownItems.Add(sub);
                     target = sub.DropDownItems;
                 }
