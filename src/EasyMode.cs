@@ -7,7 +7,7 @@ using vatsys;
 namespace BetterGroundWindow
 {
     /// <summary>
-    /// "Easy Mode": Ground displays show the network callsign of aircraft that are
+    /// "Top-Down Mode" (internally still EasyMode; the saved hotkey key is EasyModeHotkey): Ground displays show the network callsign of aircraft that are
     /// on the ground without Mode C (and without a coupled flight plan), which
     /// vatSys otherwise draws as a bare symbol.
     ///

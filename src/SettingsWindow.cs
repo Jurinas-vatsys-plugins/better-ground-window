@@ -30,6 +30,10 @@ namespace BetterGroundWindow
 
         private readonly GenericButton zoomButton;
 
+        private readonly GenericButton scaleButton;
+
+        private readonly TextField rangeField;
+
         private bool capturing;
 
         private SettingsWindow()
@@ -46,16 +50,22 @@ namespace BetterGroundWindow
             ClientSize = new Size(12 + LabelWidth + ButtonWidth + 12, 0);
 
             int y = 10;
-            easyModeButton = AddRow("Easy Mode", ref y, (s, e) => EasyMode.SetEnabled(!EasyMode.Enabled));
+            easyModeButton = AddRow("Top-Down Mode", ref y, (s, e) => EasyMode.SetEnabled(!EasyMode.Enabled));
             AddNote("Callsign for aircraft without Mode C", ref y);
-            AddNote("Main ASD: ground view at 30 NM or less", ref y);
-            hotkeyButton = AddRow("Easy Mode Key", ref y, (s, e) => BeginCapture());
-            (hotkeyDefaultButton, hotkeyClearButton) = AddHalfButtons("Default", "Clear", ref y);
+            rangeField = AddFieldRow("Top-Down Range NM", ref y);
+            rangeField.OnReturn += (s, e) => ApplyRange(leaving: false);
+            rangeField.LostFocus += (s, e) => ApplyRange(leaving: true);
+            rangeField.Escape += (s, e) => { rangeField.ErrorMode(false); rangeField.Text = ""; ActiveControl = null; RefreshButtons(); };
+            AddNote("Main ASD ground view + airports", ref y);
+            hotkeyButton = AddRow("Top-Down Key", ref y, (s, e) => BeginCapture());
+            (hotkeyDefaultButton, hotkeyClearButton) = AddHalfButtons("Reset", "Clear", ref y);
             hotkeyDefaultButton.Click += (s, e) => { EndCapture(); EasyMode.SetHotkey(EasyMode.DefaultHotkey); };
             hotkeyClearButton.Click += (s, e) => { EndCapture(); EasyMode.SetHotkey(Keys.None); };
             AddNote("Click, then press keys. Del clears.", ref y);
             zoomButton = AddRow("Unlimited Zoom", ref y, (s, e) => ZoomUnlock.SetEnabled(!ZoomUnlock.Enabled));
-            AddNote("Ground range 0.01 - 9999 NM", ref y);
+            AddNote("Ground + main ASD: 0.01 - 9999 NM", ref y);
+            scaleButton = AddRow("Scale Marker", ref y, (s, e) => SetScaleMarker(!MMI.ScaleMarker));
+            AddNote("Range scale on radar screens", ref y);
 
             y += 8;
             GenericButton close = new GenericButton
@@ -106,6 +116,55 @@ namespace BetterGroundWindow
             return button;
         }
 
+        /// <summary>A caption with a vatSys number field in the button column.</summary>
+        private TextField AddFieldRow(string caption, ref int y)
+        {
+            Controls.Add(new TextLabel
+            {
+                Text = caption,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Location = new Point(12, y),
+                Size = new Size(LabelWidth, RowHeight),
+            });
+
+            TextField field = new TextField
+            {
+                NumericCharOnly = true,
+                MaxLength = 3,
+                Font = MMI.eurofont_winsml,
+                TextAlign = HorizontalAlignment.Center,
+                AutoSize = false,
+                Location = new Point(12 + LabelWidth, y + 3),
+                Size = new Size(ButtonWidth, RowHeight - 6),
+            };
+            Controls.Add(field);
+
+            y += RowHeight + 2;
+            return field;
+        }
+
+        /// <summary>
+        /// Saves the typed range (1-500 NM). An invalid entry shows vatSys' warning
+        /// colour while typing, and reverts to the saved value when leaving the field.
+        /// </summary>
+        private void ApplyRange(bool leaving)
+        {
+            bool valid = double.TryParse(rangeField.Text, out double nm)
+                         && nm >= PluginSettings.MinTopDownRangeNm && nm <= PluginSettings.MaxTopDownRangeNm;
+            if (valid && nm != PluginSettings.TopDownRangeNm)
+            {
+                PluginSettings.TopDownRangeNm = nm;
+            }
+
+            rangeField.ErrorMode(!valid && !leaving);
+            if (valid || leaving)
+            {
+                rangeField.Text = PluginSettings.TopDownRangeNm.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            RefreshButtons();
+        }
+
         /// <summary>Two buttons splitting the button column, under the previous row.</summary>
         private (GenericButton, GenericButton) AddHalfButtons(string left, string right, ref int y)
         {
@@ -154,6 +213,14 @@ namespace BetterGroundWindow
         {
             SetToggle(easyModeButton, EasyMode.Enabled, EasyMode.Unavailable);
             SetToggle(zoomButton, ZoomUnlock.Enabled, ZoomUnlock.Unavailable);
+            SetToggle(scaleButton, MMI.ScaleMarker, null);
+
+            if (!rangeField.Focused)
+            {
+                rangeField.Text = PluginSettings.TopDownRangeNm.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            rangeField.Enabled = EasyMode.TopDownUnavailable == null;
 
             hotkeyButton.Enabled = EasyMode.Unavailable == null;
             hotkeyButton.Text = capturing ? "Press Keys" : EasyMode.Describe(EasyMode.Hotkey);
@@ -161,6 +228,31 @@ namespace BetterGroundWindow
             hotkeyButton.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             hotkeyButton.Invalidate();
             hotkeyDefaultButton.Enabled = hotkeyClearButton.Enabled = EasyMode.Unavailable == null;
+        }
+
+        /// <summary>
+        /// The scale marker is vatSys' own setting (Display Settings > Scale
+        /// Marker), which vatSys saves on exit. This only flips it.
+        /// </summary>
+        private void SetScaleMarker(bool on)
+        {
+            MMI.ScaleMarker = on;
+            foreach (Form form in Application.OpenForms)
+            {
+                if (!form.IsDisposed)
+                {
+                    form.Invalidate(true);
+                }
+            }
+
+            RefreshButtons();
+        }
+
+        protected override void OnActivated(EventArgs e)
+        {
+            // Pick up changes made elsewhere, e.g. in vatSys' Display Settings.
+            RefreshButtons();
+            base.OnActivated(e);
         }
 
         /// <summary>Same colours vatSys uses for a checked menu item.</summary>

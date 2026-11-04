@@ -71,7 +71,7 @@ namespace BetterGroundWindow
                 : (ToolStripDropDownClosingEventHandler)Delegate.CreateDelegate(typeof(ToolStripDropDownClosingEventHandler), main, keepOpen);
 
             // The main ASD itself, to refresh check marks: maps can also be made
-            // visible by MainAsdGroundMirror or reset by a position change.
+            // visible by MainAsdGroundMaps or reset by a position change.
             Control asd = type.GetField("ASD", PrivateInstance)?.GetValue(main) as Control;
             MethodInfo isVisible = asd?.GetType().GetMethod("IsMapVisible", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(DisplayMaps.Map) }, null);
             EventHandler syncChecks = (s, e) =>

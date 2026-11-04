@@ -101,7 +101,7 @@ namespace BetterGroundWindow
         {
             // The main Maps menu is filled after plugins load, so keep trying.
             MainMapsMenu.TryAttach();
-            MainAsdGroundMirror.Update();
+            MainAsdGroundMaps.Update();
 
             foreach (Form form in Application.OpenForms.Cast<Form>().ToList())
             {

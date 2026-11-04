@@ -44,7 +44,7 @@ namespace BetterGroundWindow
 
         private readonly ToolStripMenuItem unlimitedZoomItem = new ToolStripMenuItem("Unlimited Zoom");
 
-        private readonly ToolStripMenuItem easyModeItem = new ToolStripMenuItem("Easy Mode");
+        private readonly ToolStripMenuItem easyModeItem = new ToolStripMenuItem("Top-Down Mode");
 
         private readonly ToolStripMenuItem settingsItem = new ToolStripMenuItem("Better Ground Settings");
 
@@ -210,7 +210,7 @@ namespace BetterGroundWindow
         private void UpdateToolItems()
         {
             UpdateToggleItem(unlimitedZoomItem, "Unlimited Zoom", ZoomUnlock.Enabled, ZoomUnlock.Unavailable);
-            UpdateToggleItem(easyModeItem, "Easy Mode", EasyMode.Enabled, EasyMode.Unavailable);
+            UpdateToggleItem(easyModeItem, "Top-Down Mode", EasyMode.Enabled, EasyMode.Unavailable);
 
             // Redraw now so a hotkey toggle shows straight away.
             groundDisplay?.Invalidate();

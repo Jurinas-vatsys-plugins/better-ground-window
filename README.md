@@ -1,6 +1,6 @@
 # Better Ground Window
 
-A [vatSys](https://virtualairtrafficsystem.com/) plugin for the **Ground** (ASMGCS) window. It adds an ICAO quick-jump box to the window's menu bar, an option to remove the Ground zoom limit, and an Easy Mode that shows callsigns for aircraft without Mode C.
+A [vatSys](https://virtualairtrafficsystem.com/) plugin for the **Ground** (ASMGCS) window. It adds an ICAO quick-jump box to the window's menu bar, an Unlimited Zoom option for Ground windows and the main ASD, and a Top-Down Mode that shows callsigns for aircraft without Mode C and puts the ground picture on the main ASD.
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -24,38 +24,46 @@ Loading a position goes through the window's existing Position menu item. Check 
 
 ### Unlimited Zoom
 
-vatSys normally limits a Ground display to a range of **0.1 to 30 NM**. Turn on **Tools → Unlimited Zoom** in any Ground window to widen that to **0.01 to 9999 NM**. Click it again to turn it off.
+vatSys normally limits a Ground window to a range of **0.1 to 30 NM**, and the main ASD to no closer than **10 NM**. Turn on **Unlimited Zoom** to widen both to **0.01 to 9999 NM**. You can switch it from **Tools → Unlimited Zoom** in any Ground window or from the settings window. Turn it off the same way.
 
-- The option is off by default. It applies to all Ground windows at once and is remembered across restarts in `%APPDATA%\BetterGroundWindow\settings.txt`.
+- It is one switch for the Ground windows and the main ASD. Extra ASD windows keep vatSys' limits.
+- The option is off by default and is remembered across restarts in `%APPDATA%\BetterGroundWindow\settings.txt`.
 - It works for every way of zooming: range keys, the zoom box, *Default*/*Restore*, and the mouse wheel.
-- **Mouse wheel:** vatSys has no wheel zoom of its own; the wheel comes from plugins such as *Persistent Pan* / *Drag And Zoom*. Those step the range in whole nautical miles, so on their own they stop at about 2 NM (`round(2 × 0.8) = 2`). While Unlimited Zoom is on, this plugin takes over their `ZoomWithWheel` on Ground displays and zooms in fractional ×0.8 / ×1.25 steps, all the way down to 0.01 NM. Radar windows, and Ground windows with the option off, still use the other plugin's own wheel code.
-- Only Ground displays are affected. Radar ASD windows keep their normal limits.
-- When you turn it off, any Ground window zoomed past the normal limits snaps back inside them.
+- **Mouse wheel:** vatSys has no wheel zoom of its own; the wheel comes from plugins such as *Persistent Pan* / *Drag And Zoom*. Those step the range in whole nautical miles, so on their own they stop at about 2 NM (`round(2 × 0.8) = 2`). While Unlimited Zoom is on, this plugin takes over their `ZoomWithWheel` on Ground windows and the main ASD, and zooms in fractional ×0.8 / ×1.25 steps, all the way down to 0.01 NM. Elsewhere, and with the option off, the other plugin's own wheel code runs.
+- Zooming the main ASD in close does not shrink your network visibility range. vatSys only uses the main ASD range to place extra visibility centres when it is wider than your visibility range.
+- When you turn it off, any display zoomed past the normal limits snaps back inside them.
 - If the plugin cannot patch your vatSys version, the menu item reads *Unlimited Zoom (Unavailable)* and is greyed out.
 
-### Easy Mode
+### Top-Down Mode
 
-vatSys draws an aircraft on the ground that has no Mode C (transponder on standby) and no coupled flight plan as a bare symbol, with no label. **Easy Mode** gives those aircraft a small Ground label with their network callsign.
+For working top-down (covering TWR/GND from a radar position). Turn it on with **Ctrl+T** in any vatSys window, from **Tools → Top-Down Mode** in a Ground window, or from the settings window. It is **off** every time vatSys starts. While it is on:
 
-- **Toggle:** press **Ctrl+T** in any vatSys window, or use **Tools → Easy Mode** in a Ground window. Easy Mode is **off** every time vatSys starts.
-- **Only for aircraft without Mode C.** Aircraft with Mode C, Mode S/ADS-B or a coupled flight plan are labelled by vatSys exactly as before. Once a pilot turns Mode C on, vatSys' own label takes over automatically.
-- **Display only.** Easy Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra labels cannot be clicked, so they cannot open menus or couple anything. Only drawing is affected.
-- **Top-down view on the main screen.** While Easy Mode is on and the main ASD range is **30 NM or less**, aircraft on the ground are drawn on the main ASD the way a Ground window draws them: ground symbols, Ground labels (including the Easy Mode callsigns) and ground colours. Departure, arrival and local colours are worked out from the flight plan when the aircraft is within 5 NM of its departure or destination airport. Airborne traffic is drawn as normal radar tracks on top. Zoom out past 30 NM, or turn Easy Mode off, and the main ASD goes back to normal. Extra ASD windows are not affected.
-- **Ground drawings on the main screen, automatically.** Under the same conditions (Easy Mode on, main ASD at 30 NM or less), the main ASD also shows the ground maps that your open Ground windows are showing: runways, taxiways, taxilines, aprons, buildings and labels. It follows the Ground windows. Tick or untick a map there and the main ASD follows within half a second. Zoom out past 30 NM, turn Easy Mode off, or close the Ground windows, and these maps are removed again. While the view is active, maps that the Ground windows show come back even if you untick them in the main Maps menu.
-- **Ground maps by hand.** The main window's **Maps** menu also has a **Ground Maps** submenu with every airport's ground maps, so you can show one without opening a Ground window. These work whether Easy Mode is on or off, and they are left alone by the automatic mirroring. Like other ASD maps, they reset when you change position.
-- **Main ASD zoom.** vatSys does not let the main ASD zoom in closer than 10 NM. Unlimited Zoom only lifts the Ground window limit. At 10 NM a large airport such as ZBAA is drawn quite small.
+- **Callsigns for aircraft without Mode C.** vatSys draws an aircraft on the ground that has no Mode C (transponder on standby) and no coupled flight plan as a bare symbol, with no label. Top-Down Mode gives those aircraft a small Ground label with their network callsign, on Ground windows and on the main ASD. Aircraft with Mode C, Mode S/ADS-B or a coupled flight plan are labelled by vatSys exactly as before. Once a pilot turns Mode C on, vatSys' own label takes over automatically.
+- **Ground view on the main screen within the Top-Down Range.** The range is set in the settings window, 1 to 500 NM, 80 NM by default. While the main ASD range is at or below it, aircraft on the ground are drawn on the main ASD the way a Ground window draws them: ground symbols, Ground labels and ground colours. Departure, arrival and local colours are worked out from the flight plan when the aircraft is within 5 NM of its departure or destination airport. Airborne traffic is drawn as normal radar tracks on top.
+- **Ground maps on the main screen, for the airports in view.** Within the same Top-Down Range, the main ASD also shows every ground map of each airport in view: runways, taxiways, taxilines, aprons, buildings and labels. No Ground window is needed. Airports outside the view are not loaded, so performance stays reasonable. Pan or zoom and airports come and go within half a second. "In view" means within about 0.6 × the range, plus 5 NM, of the screen centre, and never more than the Top-Down Range.
+- Zoom out past the Top-Down Range or turn Top-Down Mode off, and the main ASD goes back to normal. Extra ASD windows are not affected.
+- **Ground windows are not affected.** The main ASD picks its airports from its own view only. Ground windows keep their own position and maps; Top-Down Mode never adds or removes maps there. The only Top-Down Mode effect inside a Ground window is the callsign label for aircraft without Mode C.
+- **Display only.** Top-Down Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra callsign labels cannot be clicked, so they cannot open menus or couple anything.
+- **Ground maps by hand.** The main window's **Maps** menu also has a **Ground Maps** submenu with every airport's ground maps, so you can show any of them yourself, with or without Top-Down Mode. Top-Down Mode leaves maps you ticked there alone. Like other ASD maps, they reset when you change position. While Top-Down Mode is showing an airport, its maps come back even if you untick them.
 - **Limitation:** on the main ASD, dragging a ground label with the right mouse button uses vatSys' radar-label drag, so ground labels there keep the position set in a Ground window.
-- **Custom key:** open **Settings → Better Ground Window** in the main window, or **Tools → Better Ground Settings** in a Ground window. Click the key button and press the new combination. *Del* or *Backspace* removes the hotkey, and *Esc* cancels. The key is saved in `%APPDATA%\BetterGroundWindow\settings.txt`.
+- **Custom key:** in the settings window, click the key button and press the new combination. *Reset* restores Ctrl+T, *Clear*, *Del* or *Backspace* removes the hotkey, and *Esc* cancels. The key is saved in `%APPDATA%\BetterGroundWindow\settings.txt`.
+
+### Scale Marker
+
+The settings window has a **Scale Marker** switch that shows or hides the range scale vatSys draws on radar screens (top left by default). It is vatSys' own setting, the same as **Display Settings → Scale Marker**, so vatSys remembers it across restarts.
 
 ### Settings window
 
-The settings window is a normal vatSys window. It uses vatSys' window frame, buttons, colours and font, and every change applies immediately:
+Open it from **Settings → Better Ground Window** in the main window, or **Tools → Better Ground Settings** in a Ground window. It is a normal vatSys window: it uses vatSys' window frame, buttons, colours and font, and every change applies immediately.
 
 ```
 ┌ Better Ground Window ─────────────────── × ┐
-│ Easy Mode                     [    On    ] │
-│ Easy Mode Key                 [  Ctrl+T  ] │
+│ Top-Down Mode                 [    On    ] │
+│ Top-Down Range NM             [    80    ] │
+│ Top-Down Key                  [  Ctrl+T  ] │
+│                               [Reset][Clr] │
 │ Unlimited Zoom                [   Off    ] │
+│ Scale Marker                  [    On    ] │
 │                               [  Close   ] │
 └────────────────────────────────────────────┘
 ```
@@ -74,30 +82,30 @@ Private members it relies on (verified against vatSys 0.4.9305):
 | `ASMGCSWindow.positionItem_Click` | Fallback when a position has no menu item |
 | `ASMGCSWindow.toolsToolStripMenuItem` | Where the Unlimited Zoom item goes |
 | `ASDControlDX.SetZoom`, `asdType`, `range` | The zoom limit patch |
-| `ASDControlDX.PaintGroundTracks`, `PaintLabel` | The Easy Mode patch |
+| `ASDControlDX.PaintGroundTracks`, `PaintLabel` | The Top-Down Mode patch |
 | `ASDControlDX.PaintTracksLabels`, `PaintASDTracks`, `SelectBrush`, `SelectGroundBrush` | The main-ASD top-down view |
 | `MMI.MainForm`, `MainForm.mapsToolStripMenuItem`, `mapItem_Click`, `MapsDropDown_Closing` | The Ground Maps submenu |
-| `MainForm.ASD`, `ASDControlDX.IsMapVisible`/`SetMapVisible` | Mirroring Ground window maps onto the main ASD |
+| `MainForm.ASD`, `ASDControlDX.IsMapVisible`/`SetMapVisible`, `range`, `MMI.MainASDCentre` | Showing in-view airports' ground maps on the main ASD |
 
 If a future vatSys release renames these, the plugin does nothing to that window. It does not crash vatSys.
 
-The zoom limit is hard-coded in `ASDControlDX.SetZoom`, which clamps the range to `MMI.MinimumASDRange`/`MaximumASDRange` and then clamps the internal zoom factor to 0.5–16000. A [Harmony](https://github.com/pardeike/Harmony) transpiler runs at startup. After each of those four limits it inserts a call to the plugin, which widens the limit only when Unlimited Zoom is on and the display is a Ground display. If the plugin cannot find exactly those four limits, it removes its patch and disables the option.
+The zoom limit is hard-coded in `ASDControlDX.SetZoom`, which clamps the range to `MMI.MinimumASDRange`/`MaximumASDRange` and then clamps the internal zoom factor to 0.5–16000. A [Harmony](https://github.com/pardeike/Harmony) transpiler runs at startup. After each of those four limits it inserts a call to the plugin, which widens the limit only when Unlimited Zoom is on and the display is a Ground window or the main ASD. If the plugin cannot find exactly those four limits, it removes its patch and disables the option.
 
-Easy Mode uses three Harmony patches, all of them in the paint code:
+Top-Down Mode uses three Harmony patches, all of them in the paint code:
 
-1. In `PaintGroundTracks`, the branch for an on-ground track with no flight plan and no Mode C/S/ADS-B stores `track.HasASMGCSLabel = false`. That value is replaced with "Easy Mode is on and this aircraft has a pilot", so the track gets vatSys' GroundLimited label. `HasASMGCSLabel` is only read by the painter and by label dragging.
+1. In `PaintGroundTracks`, the branch for an on-ground track with no flight plan and no Mode C/S/ADS-B stores `track.HasASMGCSLabel = false`. That value is replaced with "Top-Down Mode is on and this aircraft has a pilot", so the track gets vatSys' GroundLimited label. `HasASMGCSLabel` is only read by the painter and by label dragging.
 2. In `PaintLabel`, the `LABEL_ITEM_ACID` text is empty for such a track. Just before vatSys checks it, the pilot's network callsign is put in.
 3. A prefix and postfix on `PaintLabel` remove the clickspots that were added while painting such a label.
 
-If either code pattern isn't found exactly once, all three patches are removed and Easy Mode shows as *(Unavailable)*.
+If either code pattern isn't found exactly once, all three patches are removed and Top-Down Mode shows as *(Unavailable)*.
 
 The top-down view adds three more patches:
 
-1. A prefix on `PaintTracksLabels` does the work on the main ASD while Easy Mode is on and the range is 30 NM or less. It sends on-ground tracks to vatSys' own `PaintGroundTracks` and everything else to `PaintASDTracks`.
+1. A prefix on `PaintTracksLabels` does the work on the main ASD while Top-Down Mode is on and the range is within the Top-Down Range. It sends on-ground tracks to vatSys' own `PaintGroundTracks` and everything else to `PaintASDTracks`.
 2. `SelectBrush` and `SelectGroundBrush` read `asdType` through the plugin, which reports "Ground" while the ground tracks are being painted. vatSys then picks its ground colours.
 3. `PaintGroundTracks` and `SelectGroundBrush` read the Ground window's airport (`DisplayPosition.ASMGCSAirport`) through the plugin. On a Ground window this returns the same airport as before. On the main ASD it returns the track's departure or destination airport if the aircraft is within 5 NM of it.
 
-If these patterns aren't found exactly as expected, only the top-down view is switched off. Easy Mode on Ground windows keeps working.
+If these patterns aren't found exactly as expected, only the top-down view is switched off. Top-Down Mode on Ground windows keeps working.
 
 Harmony 2.3.3 is embedded inside `BetterGroundWindow.dll`, so the plugin is still a single file. If another plugin has already loaded a compatible Harmony 2.x (VATPRCPlugin ships 2.3.3, for example), the plugin uses that copy.
 

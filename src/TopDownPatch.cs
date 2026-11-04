@@ -29,7 +29,8 @@ namespace BetterGroundWindow
     /// </summary>
     internal static class TopDownPatch
     {
-        public const double MaxRangeNm = 30.0;
+        /// <summary>Top-down range in NM; set in the settings window (default 80).</summary>
+        public static double MaxRangeNm => PluginSettings.TopDownRangeNm;
 
         /// <summary>How close an aircraft must be to its dep/dest airport to count as "at" it.</summary>
         private const double AtAirportNm = 5.0;

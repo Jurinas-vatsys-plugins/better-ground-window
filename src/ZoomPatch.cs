@@ -17,7 +17,7 @@ namespace BetterGroundWindow
     /// </code>
     /// After each of the four limit values is pushed, we insert a call that gets
     /// the display and may widen the value. Original behaviour is untouched
-    /// unless Unlimited Zoom is on and the display is a Ground display.
+    /// unless Unlimited Zoom is on and the display is a Ground window or the main ASD.
     /// </summary>
     internal static class ZoomPatch
     {
@@ -33,6 +33,8 @@ namespace BetterGroundWindow
         private const double UnlockedMaxZoom = 1e7;
 
         private const int GroundAsdType = 2; // ASDControlDX.ASDTypes.Ground
+
+        private const int MainAsdType = 0; // ASDControlDX.ASDTypes.MainASD
 
         private static readonly Type AsdControlType = typeof(MMI).Assembly.GetType("vatsys.ASDControlDX", throwOnError: true);
 
@@ -77,7 +79,7 @@ namespace BetterGroundWindow
         /// Wheel-zoom plugins (Persistent Pan / Drag And Zoom) step the range in
         /// whole NM using the int GetRange(), so they stall around 2 NM:
         /// round(2 * 0.8) == 2. While Unlimited Zoom is on, their ZoomWithWheel is
-        /// replaced for Ground displays with fractional steps on the real range.
+        /// replaced for Ground windows and the main ASD with fractional steps on the real range.
         /// vatSys loads every plugin assembly before constructing any plugin, so
         /// they can all be found here.
         /// </summary>
@@ -194,9 +196,16 @@ namespace BetterGroundWindow
             return code;
         }
 
+        /// <summary>Unlimited Zoom covers Ground windows and the main ASD (not extra ASD windows).</summary>
         private static bool Unlocked(object display)
         {
-            return ZoomUnlock.Enabled && Convert.ToInt32(AsdTypeField.GetValue(display)) == GroundAsdType;
+            if (!ZoomUnlock.Enabled)
+            {
+                return false;
+            }
+
+            int type = Convert.ToInt32(AsdTypeField.GetValue(display));
+            return type == GroundAsdType || type == MainAsdType;
         }
 
         public static float AdjustMinRange(float original, object display) =>

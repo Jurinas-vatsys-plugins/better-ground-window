@@ -17,6 +17,31 @@ namespace BetterGroundWindow
 
         private static readonly Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        public const double DefaultTopDownRangeNm = 80;
+
+        public const double MinTopDownRangeNm = 1;
+
+        public const double MaxTopDownRangeNm = 500;
+
+        /// <summary>
+        /// Top-Down Mode works on the main ASD at this range or less (NM). Also caps
+        /// how far from the screen centre airports load their ground maps.
+        /// </summary>
+        public static double TopDownRangeNm
+        {
+            get => values.TryGetValue(nameof(TopDownRangeNm), out string v)
+                   && double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d)
+                   && d >= MinTopDownRangeNm && d <= MaxTopDownRangeNm
+                ? d
+                : DefaultTopDownRangeNm;
+            set
+            {
+                double clamped = Math.Max(MinTopDownRangeNm, Math.Min(MaxTopDownRangeNm, value));
+                values[nameof(TopDownRangeNm)] = clamped.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Save();
+            }
+        }
+
         public static bool UnlimitedZoom
         {
             get => values.TryGetValue(nameof(UnlimitedZoom), out string v) && bool.TryParse(v, out bool b) && b;

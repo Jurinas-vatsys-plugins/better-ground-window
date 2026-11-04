@@ -9,8 +9,9 @@ namespace BetterGroundWindow
 {
     /// <summary>
     /// The "Unlimited Zoom" option. vatSys clamps the Ground display range to
-    /// 0.1-30 NM inside ASDControlDX.SetZoom; <see cref="ZoomPatch"/> widens that
-    /// clamp for Ground displays while this option is on.
+    /// 0.1-30 NM and the main ASD to 10-9999 NM inside ASDControlDX.SetZoom;
+    /// <see cref="ZoomPatch"/> widens that clamp for Ground windows and the main
+    /// ASD while this option is on. Extra ASD windows keep vatSys' limits.
     /// </summary>
     internal static class ZoomUnlock
     {
@@ -60,7 +61,7 @@ namespace BetterGroundWindow
 
             if (!enabled)
             {
-                ReclampOpenGroundDisplays();
+                ReclampOpenDisplays();
             }
 
             EnabledChanged?.Invoke(null, EventArgs.Empty);
@@ -78,16 +79,18 @@ namespace BetterGroundWindow
         /// After switching the option off, push any display that is zoomed past
         /// the normal limits back inside them.
         /// </summary>
-        private static void ReclampOpenGroundDisplays()
+        private static void ReclampOpenDisplays()
         {
-            foreach (Form form in Application.OpenForms.Cast<Form>().ToList())
-            {
-                if (form.IsDisposed || form.GetType().FullName != BetterGroundWindowPlugin.GroundWindowTypeName)
-                {
-                    continue;
-                }
+            var displays = Application.OpenForms.Cast<Form>()
+                .Where(f => !f.IsDisposed && f.GetType().FullName == BetterGroundWindowPlugin.GroundWindowTypeName)
+                .Select(f => f.GetType().GetField("asmgcsControlDX1", PrivateInstance)?.GetValue(f))
+                .ToList();
 
-                object display = form.GetType().GetField("asmgcsControlDX1", PrivateInstance)?.GetValue(form);
+            object main = typeof(MMI).GetField("MainForm", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null);
+            displays.Add(main?.GetType().GetField("ASD", PrivateInstance)?.GetValue(main));
+
+            foreach (object display in displays)
+            {
                 if (display == null)
                 {
                     continue;
