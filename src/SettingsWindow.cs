@@ -24,6 +24,10 @@ namespace BetterGroundWindow
 
         private readonly GenericButton hotkeyButton;
 
+        private readonly GenericButton hotkeyDefaultButton;
+
+        private readonly GenericButton hotkeyClearButton;
+
         private readonly GenericButton zoomButton;
 
         private bool capturing;
@@ -45,6 +49,9 @@ namespace BetterGroundWindow
             easyModeButton = AddRow("Easy Mode", ref y, (s, e) => EasyMode.SetEnabled(!EasyMode.Enabled));
             AddNote("Callsign for aircraft without Mode C", ref y);
             hotkeyButton = AddRow("Easy Mode Key", ref y, (s, e) => BeginCapture());
+            (hotkeyDefaultButton, hotkeyClearButton) = AddHalfButtons("Default", "Clear", ref y);
+            hotkeyDefaultButton.Click += (s, e) => { EndCapture(); EasyMode.SetHotkey(EasyMode.DefaultHotkey); };
+            hotkeyClearButton.Click += (s, e) => { EndCapture(); EasyMode.SetHotkey(Keys.None); };
             AddNote("Click, then press keys. Del clears.", ref y);
             zoomButton = AddRow("Unlimited Zoom", ref y, (s, e) => ZoomUnlock.SetEnabled(!ZoomUnlock.Enabled));
             AddNote("Ground range 0.01 - 9999 NM", ref y);
@@ -98,6 +105,29 @@ namespace BetterGroundWindow
             return button;
         }
 
+        /// <summary>Two buttons splitting the button column, under the previous row.</summary>
+        private (GenericButton, GenericButton) AddHalfButtons(string left, string right, ref int y)
+        {
+            int width = (ButtonWidth - 2) / 2;
+            GenericButton a = new GenericButton
+            {
+                Text = left,
+                Location = new Point(12 + LabelWidth, y),
+                Size = new Size(width, RowHeight),
+            };
+            GenericButton b = new GenericButton
+            {
+                Text = right,
+                Location = new Point(12 + LabelWidth + ButtonWidth - width, y),
+                Size = new Size(width, RowHeight),
+            };
+            Controls.Add(a);
+            Controls.Add(b);
+
+            y += RowHeight + 2;
+            return (a, b);
+        }
+
         private void AddNote(string text, ref int y)
         {
             Controls.Add(new TextLabel
@@ -129,6 +159,7 @@ namespace BetterGroundWindow
             hotkeyButton.BackColor = Colours.GetColour(capturing ? Colours.Identities.WindowWarning : Colours.Identities.WindowBackground);
             hotkeyButton.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             hotkeyButton.Invalidate();
+            hotkeyDefaultButton.Enabled = hotkeyClearButton.Enabled = EasyMode.Unavailable == null;
         }
 
         /// <summary>Same colours vatSys uses for a checked menu item.</summary>
