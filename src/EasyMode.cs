@@ -43,18 +43,28 @@ namespace BetterGroundWindow
             }
             catch (Exception ex)
             {
-                while ((ex is TargetInvocationException || ex is TypeInitializationException) && ex.InnerException != null)
-                {
-                    ex = ex.InnerException;
-                }
-
-                Unavailable = ex.Message;
+                Unavailable = Describe(ex);
                 return;
+            }
+
+            // The main-ASD ground view is an extra: if it can't be installed,
+            // Easy Mode still works on Ground windows.
+            try
+            {
+                InstallTopDownPatch();
+                TopDownUnavailable = null;
+            }
+            catch (Exception ex)
+            {
+                TopDownUnavailable = Describe(ex);
             }
 
             filter = new HotkeyFilter();
             Application.AddMessageFilter(filter);
         }
+
+        /// <summary>Why the main-ASD ground view could not be installed, or null if it is active.</summary>
+        public static string TopDownUnavailable { get; private set; } = "Not initialised.";
 
         public static void SetEnabled(bool enabled)
         {
@@ -65,6 +75,29 @@ namespace BetterGroundWindow
 
             Enabled = enabled;
             Changed?.Invoke(null, EventArgs.Empty);
+
+            // Ground windows are redrawn by GroundWindowBar; the main ASD here.
+            if (TopDownUnavailable == null)
+            {
+                RedrawMainAsd();
+            }
+        }
+
+        private static string Describe(Exception ex)
+        {
+            while ((ex is TargetInvocationException || ex is TypeInitializationException) && ex.InnerException != null)
+            {
+                ex = ex.InnerException;
+            }
+
+            return ex.Message;
+        }
+
+        private static void RedrawMainAsd()
+        {
+            BindingFlags any = BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic;
+            object main = typeof(MMI).GetField("MainForm", any)?.GetValue(null);
+            (main?.GetType().GetField("ASD", any)?.GetValue(main) as Control)?.Invalidate();
         }
 
         public static void SetHotkey(Keys keys)
@@ -115,6 +148,12 @@ namespace BetterGroundWindow
         private static void InstallPatch()
         {
             EasyModePatch.Install();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallTopDownPatch()
+        {
+            TopDownPatch.Install();
         }
 
         /// <summary>

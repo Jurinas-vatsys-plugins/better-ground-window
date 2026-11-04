@@ -110,7 +110,11 @@ namespace BetterGroundWindow
 
         private static IEnumerable<CodeInstruction> GroundTracksTranspiler(IEnumerable<CodeInstruction> instructions)
         {
+            // Harmony re-runs every transpiler of a method whenever another patch is
+            // added to it (TopDownPatch also patches PaintGroundTracks), so count
+            // per run instead of accumulating.
             List<CodeInstruction> code = instructions.ToList();
+            int sites = 0;
             for (int i = 0; i < code.Count - 1; i++)
             {
                 // track.HasASMGCSLabel = false;  ->  track.HasASMGCSLabel = IsForced(track);
@@ -119,17 +123,19 @@ namespace BetterGroundWindow
                     code[i].opcode = OpCodes.Dup; // keeps any labels on this instruction
                     code[i].operand = null;
                     code.Insert(i + 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(EasyModePatch), nameof(IsForced))));
-                    labelSites++;
+                    sites++;
                     i++;
                 }
             }
 
+            labelSites = sites;
             return code;
         }
 
         private static IEnumerable<CodeInstruction> PaintLabelTranspiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             List<CodeInstruction> code = instructions.ToList();
+            acidSites = 0; // counted per run, see GroundTracksTranspiler
             FieldInfo callsign = AccessTools.Field(typeof(NetworkPilot), nameof(NetworkPilot.Callsign));
             MethodInfo isNullOrEmpty = AccessTools.Method(typeof(string), nameof(string.IsNullOrEmpty));
 
@@ -164,7 +170,7 @@ namespace BetterGroundWindow
                         new CodeInstruction(OpCodes.Dup),
                         new CodeInstruction(storeText.opcode, storeText.operand),
                     });
-                    acidSites++;
+                    acidSites = 1;
                     break;
                 }
             }

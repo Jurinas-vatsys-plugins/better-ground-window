@@ -48,6 +48,7 @@ namespace BetterGroundWindow
             int y = 10;
             easyModeButton = AddRow("Easy Mode", ref y, (s, e) => EasyMode.SetEnabled(!EasyMode.Enabled));
             AddNote("Callsign for aircraft without Mode C", ref y);
+            AddNote("Main ASD: ground view at 30 NM or less", ref y);
             hotkeyButton = AddRow("Easy Mode Key", ref y, (s, e) => BeginCapture());
             (hotkeyDefaultButton, hotkeyClearButton) = AddHalfButtons("Default", "Clear", ref y);
             hotkeyDefaultButton.Click += (s, e) => { EndCapture(); EasyMode.SetHotkey(EasyMode.DefaultHotkey); };

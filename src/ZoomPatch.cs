@@ -155,6 +155,7 @@ namespace BetterGroundWindow
             MethodInfo minRange = AccessTools.Method(typeof(MMI), "MinimumASDRange");
             MethodInfo maxRange = AccessTools.Method(typeof(MMI), "MaximumASDRange");
             List<CodeInstruction> code = new List<CodeInstruction>();
+            int sites = 0; // per run: Harmony re-runs transpilers when the method is patched again
 
             foreach (CodeInstruction instruction in instructions)
             {
@@ -183,12 +184,13 @@ namespace BetterGroundWindow
 
                 if (adjust != null)
                 {
-                    patchedSites++;
+                    sites++;
                     code.Add(new CodeInstruction(OpCodes.Ldarg_0));
                     code.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ZoomPatch), adjust)));
                 }
             }
 
+            patchedSites = sites;
             return code;
         }
 

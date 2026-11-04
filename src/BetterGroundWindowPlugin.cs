@@ -99,6 +99,9 @@ namespace BetterGroundWindow
 
         private void ScanForGroundWindows()
         {
+            // The main Maps menu is filled after plugins load, so keep trying.
+            MainMapsMenu.TryAttach();
+
             foreach (Form form in Application.OpenForms.Cast<Form>().ToList())
             {
                 if (form.IsDisposed || bars.ContainsKey(form) || form.GetType().FullName != GroundWindowTypeName)

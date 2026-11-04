@@ -39,7 +39,10 @@ vatSys draws an aircraft on the ground that has no Mode C (transponder on standb
 
 - **Toggle:** press **Ctrl+T** in any vatSys window, or use **Tools → Easy Mode** in a Ground window. Easy Mode is **off** every time vatSys starts.
 - **Only for aircraft without Mode C.** Aircraft with Mode C, Mode S/ADS-B or a coupled flight plan are labelled by vatSys exactly as before. Once a pilot turns Mode C on, vatSys' own label takes over automatically.
-- **Display only.** Easy Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra labels cannot be clicked, so they cannot open menus or couple anything. Only drawing is affected, and only on Ground windows. Radar ASD labels are unchanged.
+- **Display only.** Easy Mode does not touch flight plans, coupling, strips, radar data or any profile XML (`Labels.xml` is not changed). The extra labels cannot be clicked, so they cannot open menus or couple anything. Only drawing is affected.
+- **Top-down view on the main screen.** While Easy Mode is on and the main ASD range is **30 NM or less**, aircraft on the ground are drawn on the main ASD the way a Ground window draws them: ground symbols, Ground labels (including the Easy Mode callsigns) and ground colours. Departure, arrival and local colours are worked out from the flight plan when the aircraft is within 5 NM of its departure or destination airport. Airborne traffic is drawn as normal radar tracks on top. Zoom out past 30 NM, or turn Easy Mode off, and the main ASD goes back to normal. Extra ASD windows are not affected.
+- **Ground maps on the main screen.** The main window's **Maps** menu has a **Ground Maps** submenu with each airport's runway, taxiway, apron and building maps, the same ones a Ground window offers. Tick the ones you want, as with any other map. They work whether Easy Mode is on or off, and like other ASD maps they reset when you change position.
+- **Limitation:** on the main ASD, dragging a ground label with the right mouse button uses vatSys' radar-label drag, so ground labels there keep the position set in a Ground window.
 - **Custom key:** open **Settings → Better Ground Window** in the main window, or **Tools → Better Ground Settings** in a Ground window. Click the key button and press the new combination. *Del* or *Backspace* removes the hotkey, and *Esc* cancels. The key is saved in `%APPDATA%\BetterGroundWindow\settings.txt`.
 
 ### Settings window
@@ -70,6 +73,8 @@ Private members it relies on (verified against vatSys 0.4.9305):
 | `ASMGCSWindow.toolsToolStripMenuItem` | Where the Unlimited Zoom item goes |
 | `ASDControlDX.SetZoom`, `asdType`, `range` | The zoom limit patch |
 | `ASDControlDX.PaintGroundTracks`, `PaintLabel` | The Easy Mode patch |
+| `ASDControlDX.PaintTracksLabels`, `PaintASDTracks`, `SelectBrush`, `SelectGroundBrush` | The main-ASD top-down view |
+| `MMI.MainForm`, `MainForm.mapsToolStripMenuItem`, `mapItem_Click`, `MapsDropDown_Closing` | The Ground Maps submenu |
 
 If a future vatSys release renames these, the plugin does nothing to that window. It does not crash vatSys.
 
@@ -82,6 +87,14 @@ Easy Mode uses three Harmony patches, all of them in the paint code:
 3. A prefix and postfix on `PaintLabel` remove the clickspots that were added while painting such a label.
 
 If either code pattern isn't found exactly once, all three patches are removed and Easy Mode shows as *(Unavailable)*.
+
+The top-down view adds three more patches:
+
+1. A prefix on `PaintTracksLabels` does the work on the main ASD while Easy Mode is on and the range is 30 NM or less. It sends on-ground tracks to vatSys' own `PaintGroundTracks` and everything else to `PaintASDTracks`.
+2. `SelectBrush` and `SelectGroundBrush` read `asdType` through the plugin, which reports "Ground" while the ground tracks are being painted. vatSys then picks its ground colours.
+3. `PaintGroundTracks` and `SelectGroundBrush` read the Ground window's airport (`DisplayPosition.ASMGCSAirport`) through the plugin. On a Ground window this returns the same airport as before. On the main ASD it returns the track's departure or destination airport if the aircraft is within 5 NM of it.
+
+If these patterns aren't found exactly as expected, only the top-down view is switched off. Easy Mode on Ground windows keeps working.
 
 Harmony 2.3.3 is embedded inside `BetterGroundWindow.dll`, so the plugin is still a single file. If another plugin has already loaded a compatible Harmony 2.x (VATPRCPlugin ships 2.3.3, for example), the plugin uses that copy.
 
