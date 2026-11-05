@@ -8,7 +8,7 @@
     <LangVersion>latest</LangVersion>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Product>Better Ground Window</Product>
     <Description>vatSys plugin: ICAO quick-jump box, unlimited zoom and Easy Mode callsigns for the Ground (ASMGCS) window.</Description>
     <!-- Folder containing vatSys.exe. Override with: dotnet build -p:VatSysBin="C:\Program Files (x86)\vatSys\bin" -->
