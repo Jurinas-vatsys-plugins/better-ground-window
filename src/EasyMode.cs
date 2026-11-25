@@ -95,9 +95,7 @@ namespace BetterGroundWindow
 
         private static void RedrawMainAsd()
         {
-            BindingFlags any = BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic;
-            object main = typeof(MMI).GetField("MainForm", any)?.GetValue(null);
-            (main?.GetType().GetField("ASD", any)?.GetValue(main) as Control)?.Invalidate();
+            VatSysMain.Asd?.Invalidate();
         }
 
         public static void SetHotkey(Keys keys)

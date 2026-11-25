@@ -48,6 +48,8 @@ namespace BetterGroundWindow
 
         private readonly ToolStripMenuItem settingsItem = new ToolStripMenuItem("Better Ground Settings");
 
+        private readonly ToolStripMenuItem closeMenusItem = new ToolStripMenuItem("Close All Menus");
+
         private string currentIcao;
 
         private GroundWindowBar(Form window, MenuStrip menu, ToolStripMenuItem positionsMenu, ToolStripMenuItem toolsMenu, Control groundDisplay)
@@ -112,13 +114,17 @@ namespace BetterGroundWindow
                 EasyMode.Changed += OnFeatureChanged;
 
                 settingsItem.Name = "betterGroundSettings";
-                settingsItem.Click += (s, e) => SettingsWindow.ShowSettings(window);
+                settingsItem.Click += (s, e) => SettingsWindow.ShowSettings();
+
+                closeMenusItem.Name = "betterGroundCloseMenus";
+                closeMenusItem.Click += (s, e) => DropDownCloser.CloseAll();
 
                 UpdateToolItems();
                 toolsMenu.DropDownItems.Add(zoomSeparator);
                 toolsMenu.DropDownItems.Add(unlimitedZoomItem);
                 toolsMenu.DropDownItems.Add(easyModeItem);
                 toolsMenu.DropDownItems.Add(settingsItem);
+                toolsMenu.DropDownItems.Add(closeMenusItem);
             }
         }
 
@@ -148,6 +154,21 @@ namespace BetterGroundWindow
             EasyMode.Changed -= OnFeatureChanged;
             errorTimer.Dispose();
             toolTip.Dispose();
+            historyMenu.Image?.Dispose();
+            historyMenu.Image = null;
+            ClearHistoryItems();
+        }
+
+        /// <summary>Removes and disposes the history items (Clear() alone leaves them undisposed).</summary>
+        private void ClearHistoryItems()
+        {
+            ToolStripItemCollection items = historyMenu.DropDownItems;
+            while (items.Count > 0)
+            {
+                ToolStripItem item = items[items.Count - 1];
+                items.RemoveAt(items.Count - 1);
+                item.Dispose();
+            }
         }
 
         private void Field_KeyPress(object sender, KeyPressEventArgs e)
@@ -160,7 +181,7 @@ namespace BetterGroundWindow
 
         private void RebuildHistoryMenu()
         {
-            historyMenu.DropDownItems.Clear();
+            ClearHistoryItems();
 
             // History items deliberately carry no Tag: vatSys' MenuRenderer flashes
             // any top-level menu whose children have a Tag.

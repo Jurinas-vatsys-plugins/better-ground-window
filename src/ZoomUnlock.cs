@@ -86,8 +86,7 @@ namespace BetterGroundWindow
                 .Select(f => f.GetType().GetField("asmgcsControlDX1", PrivateInstance)?.GetValue(f))
                 .ToList();
 
-            object main = typeof(MMI).GetField("MainForm", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null);
-            displays.Add(main?.GetType().GetField("ASD", PrivateInstance)?.GetValue(main));
+            displays.Add(VatSysMain.Asd);
 
             foreach (object display in displays)
             {

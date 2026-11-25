@@ -52,6 +52,17 @@ namespace BetterGroundWindow
             }
         }
 
+        /// <summary>Close other windows' drop-down menus when a vatSys window is activated (default on).</summary>
+        public static bool AutoCloseMenus
+        {
+            get => !values.TryGetValue(nameof(AutoCloseMenus), out string v) || !bool.TryParse(v, out bool b) || b;
+            set
+            {
+                values[nameof(AutoCloseMenus)] = value.ToString();
+                Save();
+            }
+        }
+
         /// <summary>Easy Mode toggle key, or null if never customised.</summary>
         public static System.Windows.Forms.Keys? EasyModeHotkey
         {

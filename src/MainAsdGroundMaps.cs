@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
 using vatsys;
@@ -31,6 +30,22 @@ namespace BetterGroundWindow
         /// <summary>Map folder (normally the airport ICAO) to airport, or null if it isn't one.</summary>
         private static readonly Dictionary<string, Airspace2.Airport> folderAirports = new Dictionary<string, Airspace2.Airport>(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>Ground maps that belong to an airport, with that airport. Built once per map list.</summary>
+        private static readonly List<KeyValuePair<DisplayMaps.Map, Airspace2.Airport>> groundMaps = new List<KeyValuePair<DisplayMaps.Map, Airspace2.Airport>>();
+
+        private static List<DisplayMaps.Map> groundMapsList;
+
+        private static int groundMapsCount = -1;
+
+        /// <summary>Reused every tick instead of allocating new collections.</summary>
+        private static readonly HashSet<DisplayMaps.Map> wanted = new HashSet<DisplayMaps.Map>();
+
+        private static readonly List<DisplayMaps.Map> stale = new List<DisplayMaps.Map>();
+
+        private static readonly object[] oneArg = new object[1];
+
+        private static readonly object[] twoArgs = new object[2];
+
         private static Control mainAsd;
 
         private static MethodInfo isMapVisible;
@@ -48,6 +63,11 @@ namespace BetterGroundWindow
             }
 
             bool active = EasyMode.Enabled && EasyMode.TopDownUnavailable == null && TopDownPatch.Active(asd);
+            if (!active && added.Count == 0)
+            {
+                return; // the usual case: nothing to show and nothing to remove
+            }
+
             double range = rangeField.GetValue(asd) is double r ? r : 0;
             Sync(asd, MMI.MainASDCentre, range, active);
         }
@@ -65,15 +85,28 @@ namespace BetterGroundWindow
                 setMapVisible = asd.GetType().GetMethod("SetMapVisible", AnyInstance, null, new[] { typeof(DisplayMaps.Map), typeof(bool) }, null);
             }
 
-            HashSet<DisplayMaps.Map> wanted = active && centre != null
-                ? MapsInView(centre, range)
-                : new HashSet<DisplayMaps.Map>();
+            wanted.Clear();
+            if (active && centre != null)
+            {
+                FillMapsInView(centre, range, wanted);
+            }
 
-            foreach (DisplayMaps.Map map in added.Where(m => !wanted.Contains(m)).ToList())
+            stale.Clear();
+            foreach (DisplayMaps.Map map in added)
+            {
+                if (!wanted.Contains(map))
+                {
+                    stale.Add(map);
+                }
+            }
+
+            foreach (DisplayMaps.Map map in stale)
             {
                 SetVisible(asd, map, false);
                 added.Remove(map);
             }
+
+            stale.Clear();
 
             foreach (DisplayMaps.Map map in wanted)
             {
@@ -84,6 +117,8 @@ namespace BetterGroundWindow
                     added.Add(map);
                 }
             }
+
+            wanted.Clear();
         }
 
         /// <summary>Number of maps currently added to the main ASD by this class.</summary>
@@ -98,23 +133,53 @@ namespace BetterGroundWindow
         /// <summary>Ground maps whose airport is within view.</summary>
         internal static HashSet<DisplayMaps.Map> MapsInView(Coordinate centre, double range)
         {
-            double radius = ViewRadiusNm(range);
             HashSet<DisplayMaps.Map> maps = new HashSet<DisplayMaps.Map>();
-            foreach (DisplayMaps.Map map in DisplayMaps.Maps)
-            {
-                if (map.Category != DisplayMaps.MapCategories.Ground)
-                {
-                    continue;
-                }
+            FillMapsInView(centre, range, maps);
+            return maps;
+        }
 
-                Airspace2.Airport airport = AirportOf(map);
-                if (airport?.LatLong != null && Conversions.CalculateDistance(centre, airport.LatLong) <= radius)
+        private static void FillMapsInView(Coordinate centre, double range, HashSet<DisplayMaps.Map> maps)
+        {
+            double radius = ViewRadiusNm(range);
+            foreach (KeyValuePair<DisplayMaps.Map, Airspace2.Airport> entry in GroundMaps())
+            {
+                if (Conversions.CalculateDistance(centre, entry.Value.LatLong) <= radius)
                 {
-                    maps.Add(map);
+                    maps.Add(entry.Key);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The profile's ground maps that have an airport. Rebuilt only if the
+        /// map list itself is replaced or resized (profile reload).
+        /// </summary>
+        private static List<KeyValuePair<DisplayMaps.Map, Airspace2.Airport>> GroundMaps()
+        {
+            List<DisplayMaps.Map> all = DisplayMaps.Maps;
+            int count = all?.Count ?? 0;
+            if (ReferenceEquals(all, groundMapsList) && count == groundMapsCount)
+            {
+                return groundMaps;
+            }
+
+            groundMapsList = all;
+            groundMapsCount = count;
+            groundMaps.Clear();
+            if (all != null)
+            {
+                foreach (DisplayMaps.Map map in all)
+                {
+                    Airspace2.Airport airport = map.Category == DisplayMaps.MapCategories.Ground ? AirportOf(map) : null;
+                    if (airport?.LatLong != null)
+                    {
+                        groundMaps.Add(new KeyValuePair<DisplayMaps.Map, Airspace2.Airport>(map, airport));
+                    }
                 }
             }
 
-            return maps;
+            folderAirports.Clear(); // only needed while building
+            return groundMaps;
         }
 
         private static Airspace2.Airport AirportOf(DisplayMaps.Map map)
@@ -141,8 +206,7 @@ namespace BetterGroundWindow
                 return mainAsd;
             }
 
-            object main = typeof(MMI).GetField("MainForm", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null);
-            mainAsd = main?.GetType().GetField("ASD", AnyInstance)?.GetValue(main) as Control;
+            mainAsd = VatSysMain.Asd;
             if (mainAsd == null)
             {
                 return null;
@@ -161,12 +225,29 @@ namespace BetterGroundWindow
 
         private static bool IsVisible(Control display, DisplayMaps.Map map)
         {
-            return (bool)isMapVisible.Invoke(display, new object[] { map });
+            oneArg[0] = map;
+            try
+            {
+                return (bool)isMapVisible.Invoke(display, oneArg);
+            }
+            finally
+            {
+                oneArg[0] = null;
+            }
         }
 
         private static void SetVisible(Control display, DisplayMaps.Map map, bool visible)
         {
-            setMapVisible.Invoke(display, new object[] { map, visible });
+            twoArgs[0] = map;
+            twoArgs[1] = visible;
+            try
+            {
+                setMapVisible.Invoke(display, twoArgs);
+            }
+            finally
+            {
+                twoArgs[0] = null;
+            }
         }
     }
 }
