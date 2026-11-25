@@ -52,6 +52,10 @@ For working top-down (covering TWR/GND from a radar position). Turn it on with *
 
 The settings window has a **Scale Marker** switch that shows or hides the range scale vatSys draws on radar screens (top left by default). It is vatSys' own setting, the same as **Display Settings → Scale Marker**, so vatSys remembers it across restarts.
 
+### Closing stuck menus
+
+vatSys opens some submenus by itself and keeps the Maps menus open after a click, so after switching to another vatSys window a drop-down menu can stay on screen. With **Auto-Close Menus** on (the default), activating a vatSys window closes the drop-downs left open in other windows. To force every open drop-down closed, use **Close All** in the settings window, **Settings → Close All Menus** in the main window, or **Tools → Close All Menus** in a Ground window.
+
 ### Settings window
 
 Open it from **Settings → Better Ground Window** in the main window, or **Tools → Better Ground Settings** in a Ground window. It is a normal vatSys window: it uses vatSys' window frame, buttons, colours and font, and every change applies immediately.
@@ -64,6 +68,8 @@ Open it from **Settings → Better Ground Window** in the main window, or **Tool
 │                               [Reset][Clr] │
 │ Unlimited Zoom                [   Off    ] │
 │ Scale Marker                  [    On    ] │
+│ Auto-Close Menus              [    On    ] │
+│ Drop-Down Menus               [Close All ] │
 │                               [  Close   ] │
 └────────────────────────────────────────────┘
 ```

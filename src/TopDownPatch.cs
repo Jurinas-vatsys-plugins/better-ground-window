@@ -55,8 +55,20 @@ namespace BetterGroundWindow
 
         private static readonly Airspace2.Airport NoAirport = new Airspace2.Airport { ICAOName = "" };
 
+        private static readonly Track[] NoTracks = new Track[0];
+
         [ThreadStatic]
         private static bool groundScope;
+
+        // Reused by the render thread every frame instead of allocating new ones.
+        [ThreadStatic]
+        private static List<Track> groundBuffer;
+
+        [ThreadStatic]
+        private static List<Track> restBuffer;
+
+        [ThreadStatic]
+        private static object[] paintArgs;
 
         private static Dictionary<string, int> sites;
 
@@ -143,16 +155,15 @@ namespace BetterGroundWindow
                 return null;
             }
 
-            foreach (string icao in new[] { fdr.DepAirport, fdr.DesAirport })
-            {
-                Airspace2.Airport airport = string.IsNullOrEmpty(icao) ? null : Airspace2.GetAirport(icao);
-                if (airport?.LatLong != null && Conversions.CalculateDistance(airport.LatLong, location) <= AtAirportNm)
-                {
-                    return airport;
-                }
-            }
+            return AirportNear(fdr.DepAirport, location) ?? AirportNear(fdr.DesAirport, location);
+        }
 
-            return null;
+        private static Airspace2.Airport AirportNear(string icao, Coordinate location)
+        {
+            Airspace2.Airport airport = string.IsNullOrEmpty(icao) ? null : Airspace2.GetAirport(icao);
+            return airport?.LatLong != null && Conversions.CalculateDistance(airport.LatLong, location) <= AtAirportNm
+                ? airport
+                : null;
         }
 
         /// <summary>True when an on-ground track should be drawn Ground-style on the main ASD.</summary>
@@ -178,20 +189,22 @@ namespace BetterGroundWindow
             {
                 if (Convert.ToInt32(AsdTypeField.GetValue(__instance)) == MainAsdType)
                 {
-                    groundPainted = new Track[0];
+                    groundPainted = NoTracks;
                 }
 
                 return true;
             }
 
-            List<Track> ground = new List<Track>();
-            List<Track> rest = new List<Track>();
+            List<Track> ground = groundBuffer ?? (groundBuffer = new List<Track>());
+            List<Track> rest = restBuffer ?? (restBuffer = new List<Track>());
+            ground.Clear();
+            rest.Clear();
             foreach (Track track in tracks)
             {
                 (IsGroundTrack(track) ? ground : rest).Add(track);
             }
 
-            groundPainted = ground.ToArray();
+            groundPainted = ground.Count == 0 ? NoTracks : ground.ToArray();
 
             // Ground first, so airborne traffic and its labels are drawn on top.
             groundScope = true;
@@ -204,7 +217,17 @@ namespace BetterGroundWindow
                 groundScope = false;
             }
 
-            Call(PaintAsdTracks, __instance, renderParams, rest, renderClickSpots);
+            try
+            {
+                Call(PaintAsdTracks, __instance, renderParams, rest, renderClickSpots);
+            }
+            finally
+            {
+                // Don't keep tracks alive between frames through the buffers.
+                ground.Clear();
+                rest.Clear();
+            }
+
             return false;
         }
 
@@ -284,8 +307,12 @@ namespace BetterGroundWindow
         /// Invoke without wrapping exceptions: vatSys' render loop catches
         /// SharpDXException itself to recover from a lost device.
         /// </summary>
-        private static void Call(MethodInfo method, object instance, params object[] args)
+        private static void Call(MethodInfo method, object instance, object renderParams, List<Track> tracks, object renderClickSpots)
         {
+            object[] args = paintArgs ?? (paintArgs = new object[3]);
+            args[0] = renderParams;
+            args[1] = tracks;
+            args[2] = renderClickSpots;
             try
             {
                 method.Invoke(instance, args);
@@ -293,6 +320,10 @@ namespace BetterGroundWindow
             catch (TargetInvocationException ex) when (ex.InnerException != null)
             {
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+            }
+            finally
+            {
+                args[0] = args[1] = args[2] = null;
             }
         }
 

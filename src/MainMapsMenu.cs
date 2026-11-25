@@ -32,7 +32,7 @@ namespace BetterGroundWindow
                 return;
             }
 
-            Form main = typeof(MMI).GetField("MainForm", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) as Form;
+            Form main = VatSysMain.Form;
             if (main == null || main.IsDisposed || !main.IsHandleCreated)
             {
                 return;

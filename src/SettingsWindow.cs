@@ -32,6 +32,8 @@ namespace BetterGroundWindow
 
         private readonly GenericButton scaleButton;
 
+        private readonly GenericButton autoCloseButton;
+
         private readonly TextField rangeField;
 
         private bool capturing;
@@ -44,7 +46,10 @@ namespace BetterGroundWindow
             HasMaximizeButton = false;
             Resizeable = false;
             MiddleClickClose = true;
-            HideOnClose = true;
+            // Disposed on close, not hidden: a hidden BaseForm with HideOnClose
+            // cancels every close, including the FormOwnerClosing one WinForms
+            // sends when its owner closes, which kept the owner from closing.
+            HideOnClose = false;
             KeyPreview = true;
             StartPosition = FormStartPosition.CenterParent;
             ClientSize = new Size(12 + LabelWidth + ButtonWidth + 12, 0);
@@ -66,6 +71,11 @@ namespace BetterGroundWindow
             AddNote("Ground + main ASD: 0.01 - 9999 NM", ref y);
             scaleButton = AddRow("Scale Marker", ref y, (s, e) => SetScaleMarker(!MMI.ScaleMarker));
             AddNote("Range scale on radar screens", ref y);
+            autoCloseButton = AddRow("Auto-Close Menus", ref y, (s, e) => { PluginSettings.AutoCloseMenus = !PluginSettings.AutoCloseMenus; RefreshButtons(); });
+            AddNote("Close menus left open in other windows", ref y);
+            GenericButton closeMenus = AddRow("Drop-Down Menus", ref y, (s, e) => DropDownCloser.CloseAll());
+            closeMenus.Text = "Close All";
+            AddNote("Force close every open drop-down menu", ref y);
 
             y += 8;
             GenericButton close = new GenericButton
@@ -83,14 +93,24 @@ namespace BetterGroundWindow
             RefreshButtons();
         }
 
-        public static void ShowSettings(IWin32Window owner)
+        /// <summary>
+        /// Always owned by the main window: an owned window closes with its owner,
+        /// so a Ground window must never be the owner.
+        /// </summary>
+        public static void ShowSettings()
         {
             if (instance == null || instance.IsDisposed)
             {
                 instance = new SettingsWindow();
             }
 
-            instance.Show(owner);
+            Form main = VatSysMain.Form;
+            if (!instance.Visible && main != null && !main.IsDisposed)
+            {
+                instance.Owner = main;
+            }
+
+            instance.Show(main);
             instance.Activate();
         }
 
@@ -214,6 +234,7 @@ namespace BetterGroundWindow
             SetToggle(easyModeButton, EasyMode.Enabled, EasyMode.Unavailable);
             SetToggle(zoomButton, ZoomUnlock.Enabled, ZoomUnlock.Unavailable);
             SetToggle(scaleButton, MMI.ScaleMarker, null);
+            SetToggle(autoCloseButton, PluginSettings.AutoCloseMenus, null);
 
             if (!rangeField.Focused)
             {
@@ -327,6 +348,10 @@ namespace BetterGroundWindow
                 EasyMode.Changed -= OnSettingsChanged;
                 ZoomUnlock.EnabledChanged -= OnSettingsChanged;
                 EasyMode.CapturingHotkey = false;
+                if (instance == this)
+                {
+                    instance = null;
+                }
             }
 
             base.Dispose(disposing);

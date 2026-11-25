@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
-using System.Linq;
 using System.Windows.Forms;
 using vatsys;
 using vatsys.Plugin;
@@ -65,9 +64,14 @@ namespace BetterGroundWindow
             // Main window: Settings > Better Ground Window. vatSys adds plugin menu
             // items to the main menu right after constructing the plugins.
             ToolStripMenuItem settings = new ToolStripMenuItem("Better Ground Window");
-            settings.Click += (s, e) => SettingsWindow.ShowSettings(Form.ActiveForm);
+            settings.Click += (s, e) => SettingsWindow.ShowSettings();
             MMI.AddCustomMenuItem(new CustomToolStripMenuItem(
                 CustomToolStripMenuItemWindowType.Main, CustomToolStripMenuItemCategory.Settings, settings));
+
+            ToolStripMenuItem closeMenus = new ToolStripMenuItem("Close All Menus");
+            closeMenus.Click += (s, e) => DropDownCloser.CloseAll();
+            MMI.AddCustomMenuItem(new CustomToolStripMenuItem(
+                CustomToolStripMenuItemWindowType.Main, CustomToolStripMenuItemCategory.Settings, closeMenus));
 
             StartScanning();
         }
@@ -102,9 +106,14 @@ namespace BetterGroundWindow
             // The main Maps menu is filled after plugins load, so keep trying.
             MainMapsMenu.TryAttach();
             MainAsdGroundMaps.Update();
+            DropDownCloser.WatchOpenForms();
 
-            foreach (Form form in Application.OpenForms.Cast<Form>().ToList())
+            // Indexed loop: no per-tick copy of the form list. Attaching a bar
+            // doesn't open or close forms, so the collection is stable here.
+            FormCollection forms = Application.OpenForms;
+            for (int i = 0; i < forms.Count; i++)
             {
+                Form form = forms[i];
                 if (form.IsDisposed || bars.ContainsKey(form) || form.GetType().FullName != GroundWindowTypeName)
                 {
                     continue;
